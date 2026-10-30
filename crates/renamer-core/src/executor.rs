@@ -395,7 +395,10 @@ fn two_phase(
         // Linux/macOS 的 rename 会静默覆盖目标，必须自己拦一道
         if fin.exists() {
             let _ = std::fs::rename(&temp, orig);
-            out[i] = Err((FailKind::Exists, "目标文件在执行时已存在，已还原原名".into()));
+            out[i] = Err((
+                FailKind::Exists,
+                "目标文件在执行时已存在，已还原原名".into(),
+            ));
             done += 1;
             progress(done, total, "写入目标名");
             continue;
@@ -561,10 +564,7 @@ mod tests {
         t.file("b.txt", "B");
         let j = journal_at(&t.0);
 
-        let entries = vec![
-            entry_of(&t.0.join("a.txt")),
-            entry_of(&t.0.join("b.txt")),
-        ];
+        let entries = vec![entry_of(&t.0.join("a.txt")), entry_of(&t.0.join("b.txt"))];
         let plan = crate::planner::build_plan(
             &entries,
             &RenameConfig {
@@ -665,7 +665,11 @@ mod tests {
         let plan = plan_from_pairs(&t.0, &[("a.txt", "b.txt")]);
         execute(&plan, &j, &ExecOptions::default(), &mut noop);
 
-        let leftovers: Vec<String> = t.names().into_iter().filter(|n| n.starts_with(".rnm-")).collect();
+        let leftovers: Vec<String> = t
+            .names()
+            .into_iter()
+            .filter(|n| n.starts_with(".rnm-"))
+            .collect();
         assert!(leftovers.is_empty(), "残留临时文件: {leftovers:?}");
     }
 
@@ -675,12 +679,7 @@ mod tests {
         t.file("a.txt", "A");
         let j = journal_at(&t.0);
         let plan = plan_from_pairs(&t.0, &[("a.txt", "b.txt")]);
-        let r = execute(
-            &plan,
-            &j,
-            &ExecOptions { dry_run: true },
-            &mut noop,
-        );
+        let r = execute(&plan, &j, &ExecOptions { dry_run: true }, &mut noop);
         assert_eq!(r.succeeded, 1);
         assert_eq!(t.names(), vec!["a.txt"]);
     }

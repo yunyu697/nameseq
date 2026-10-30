@@ -127,7 +127,11 @@ fn bad_chain_exits_with_two_and_touches_nothing() {
     let e = Env::new("bad");
     e.file("a.txt");
     let bad = e.root.join("bad.nsq");
-    fs::write(&bad, r#"{"config":{"rules":[{"id":"r","action":{"kind":"replace","find":"([","regex":true}}]}}"#).unwrap();
+    fs::write(
+        &bad,
+        r#"{"config":{"rules":[{"id":"r","action":{"kind":"replace","find":"([","regex":true}}]}}"#,
+    )
+    .unwrap();
 
     let out = e.run(&["run", s(&bad), s(&e.files()), "-y"]);
     assert_eq!(out.status.code(), Some(2));
@@ -141,7 +145,10 @@ fn batches_lists_executed_batch() {
     let e = Env::new("batches");
     e.file("a.txt");
     let chain = e.chain();
-    assert!(e.run(&["run", s(&chain), s(&e.files()), "-y"]).status.success());
+    assert!(e
+        .run(&["run", s(&chain), s(&e.files()), "-y"])
+        .status
+        .success());
 
     let out = e.run(&["batches"]);
     let stdout = String::from_utf8_lossy(&out.stdout);

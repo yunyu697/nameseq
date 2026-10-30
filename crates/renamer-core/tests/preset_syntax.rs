@@ -66,10 +66,17 @@ fn every_preset_regex_compiles() {
 fn every_preset_rule_chain_is_valid() {
     // 用一批有代表性的文件名跑一遍每条预设，确认能算出结果而不是报错。
     let c = cases();
-    let names = ["IMG_0001.JPG", "my photo (1).png", "报告 - 副本.pdf", "a--b.txt"];
+    let names = [
+        "IMG_0001.JPG",
+        "my photo (1).png",
+        "报告 - 副本.pdf",
+        "a--b.txt",
+    ];
 
     for t in &c.templates {
-        let r = rule(Action::Template { template: t.clone() });
+        let r = rule(Action::Template {
+            template: t.clone(),
+        });
         r.compile()
             .unwrap_or_else(|e| panic!("模板 {t:?} 编译失败: {e}"));
     }

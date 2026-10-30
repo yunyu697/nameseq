@@ -77,10 +77,7 @@ fn parse_args(argv: &[String]) -> Result<Cmd, String> {
         }),
         "run" => {
             let mut it = argv[1..].iter();
-            let chain = it
-                .next()
-                .ok_or("run 需要一个规则链文件（.nsq）")?
-                .clone();
+            let chain = it.next().ok_or("run 需要一个规则链文件（.nsq）")?.clone();
             let mut flags = RunFlags::default();
             let mut paths = Vec::new();
             for a in it {
@@ -126,7 +123,9 @@ fn journal_path() -> PathBuf {
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
     };
-    base.unwrap_or_else(|| PathBuf::from(".")).join(id).join("rename-journal.jsonl")
+    base.unwrap_or_else(|| PathBuf::from("."))
+        .join(id)
+        .join("rename-journal.jsonl")
 }
 
 fn status_label(s: OpStatus) -> &'static str {
@@ -172,7 +171,11 @@ fn run(chain_path: &Path, paths: &[PathBuf], flags: &RunFlags) -> Result<u8, Str
     let plan = build_plan(&entries, &chain.config).map_err(|e| e.to_string())?;
 
     if !flags.quiet {
-        println!("规则链：{}（{} 条规则）", chain.name, chain.config.rules.len());
+        println!(
+            "规则链：{}（{} 条规则）",
+            chain.name,
+            chain.config.rules.len()
+        );
         println!("共 {} 项，其中可执行 {} 项\n", plan.total, plan.executable);
         for op in &plan.ops {
             if op.status == OpStatus::Unchanged && flags.quiet {
@@ -199,7 +202,10 @@ fn run(chain_path: &Path, paths: &[PathBuf], flags: &RunFlags) -> Result<u8, Str
         return Ok(0);
     }
     if flags.dry_run {
-        println!("预演模式：以上 {} 项会被改名，文件没有动。", plan.executable);
+        println!(
+            "预演模式：以上 {} 项会被改名，文件没有动。",
+            plan.executable
+        );
         return Ok(0);
     }
     if !flags.yes && !confirm(&format!("确认改名 {} 项？", plan.executable)) {
@@ -218,7 +224,12 @@ fn run(chain_path: &Path, paths: &[PathBuf], flags: &RunFlags) -> Result<u8, Str
             let _ = io::stderr().flush();
         }
     };
-    let r = executor::execute(&plan, &journal, &ExecOptions { dry_run: false }, &mut on_progress);
+    let r = executor::execute(
+        &plan,
+        &journal,
+        &ExecOptions { dry_run: false },
+        &mut on_progress,
+    );
     eprintln!();
 
     report(&r);
@@ -235,7 +246,10 @@ fn report(r: &BatchResult) {
             String::new()
         }
     );
-    println!("批次号 {}（用 `nsq undo {}` 可以还原）", r.batch_id, r.batch_id);
+    println!(
+        "批次号 {}（用 `nsq undo {}` 可以还原）",
+        r.batch_id, r.batch_id
+    );
     for bad in r.results.iter().filter(|x| !x.ok) {
         if let Some(e) = &bad.error {
             println!("  ✗ {}：{e}", bad.from);
@@ -246,7 +260,9 @@ fn report(r: &BatchResult) {
         }
     }
     if r.results.iter().any(|x| !x.ok && x.retryable) {
-        println!("提示：被占用 / 被改过的条目，处理好之后重跑同一条命令即可（会按当前状态重新校验）");
+        println!(
+            "提示：被占用 / 被改过的条目，处理好之后重跑同一条命令即可（会按当前状态重新校验）"
+        );
     }
 }
 
@@ -281,7 +297,11 @@ fn do_batches() -> Result<u8, String> {
             "{}  {:>4} 步  {}",
             b.batch,
             b.steps,
-            if b.completed { "完成" } else { "未完成（可 nsq undo 恢复）" }
+            if b.completed {
+                "完成"
+            } else {
+                "未完成（可 nsq undo 恢复）"
+            }
         );
     }
     Ok(0)
@@ -337,7 +357,11 @@ mod tests {
     fn parses_run_with_flags() {
         let cmd = parse_args(&args(&["run", "a.nsq", "./p", "-r", "-y", "--dirs"])).unwrap();
         match cmd {
-            Cmd::Run { chain, paths, flags } => {
+            Cmd::Run {
+                chain,
+                paths,
+                flags,
+            } => {
                 assert_eq!(chain, PathBuf::from("a.nsq"));
                 assert_eq!(paths, vec![PathBuf::from("./p")]);
                 assert!(flags.recursive && flags.yes && flags.dirs);

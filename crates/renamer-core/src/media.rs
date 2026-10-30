@@ -533,7 +533,8 @@ mod tests {
     struct Tmp(PathBuf);
     impl Tmp {
         fn new(tag: &str) -> Self {
-            let d = std::env::temp_dir().join(format!("renamer-media-{tag}-{}", std::process::id()));
+            let d =
+                std::env::temp_dir().join(format!("renamer-media-{tag}-{}", std::process::id()));
             let _ = fs::remove_dir_all(&d);
             fs::create_dir_all(&d).unwrap();
             Tmp(d)

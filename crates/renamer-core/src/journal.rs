@@ -242,7 +242,8 @@ mod tests {
     use super::*;
 
     fn tmp_journal(tag: &str) -> (Journal, PathBuf) {
-        let dir = std::env::temp_dir().join(format!("renamer-journal-{tag}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("renamer-journal-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let path = dir.join("journal.jsonl");
         (Journal::open(&path).unwrap(), path)
@@ -251,9 +252,12 @@ mod tests {
     #[test]
     fn records_and_reads_back() {
         let (j, _p) = tmp_journal("basic");
-        j.record("b1", Path::new("/a/x"), Path::new("/a/y")).unwrap();
-        j.record("b1", Path::new("/a/y"), Path::new("/a/z")).unwrap();
-        j.record("b2", Path::new("/b/1"), Path::new("/b/2")).unwrap();
+        j.record("b1", Path::new("/a/x"), Path::new("/a/y"))
+            .unwrap();
+        j.record("b1", Path::new("/a/y"), Path::new("/a/z"))
+            .unwrap();
+        j.record("b2", Path::new("/b/1"), Path::new("/b/2"))
+            .unwrap();
 
         let s1 = j.steps_for("b1").unwrap();
         assert_eq!(s1.len(), 2);

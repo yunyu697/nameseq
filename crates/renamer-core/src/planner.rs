@@ -266,7 +266,10 @@ pub fn build_plan(entries: &[FileEntry], cfg: &RenameConfig) -> Result<Plan, Pla
     skip_dirs_with_renamed_children(&mut ops);
 
     let executable = ops.iter().filter(|o| o.status == OpStatus::Ok).count();
-    let conflicts = ops.iter().filter(|o| o.status == OpStatus::Conflict).count();
+    let conflicts = ops
+        .iter()
+        .filter(|o| o.status == OpStatus::Conflict)
+        .count();
     let invalid = ops.iter().filter(|o| o.status == OpStatus::Invalid).count();
     let unchanged = ops
         .iter()
@@ -422,7 +425,10 @@ fn split_name(name: &str) -> (String, String) {
 
 fn sort_entries(order: &mut [usize], entries: &[FileEntry], cfg: &RenameConfig) {
     let cmp_name = |a: usize, b: usize| -> Ordering {
-        let (x, y) = (validate::fold(&entries[a].name), validate::fold(&entries[b].name));
+        let (x, y) = (
+            validate::fold(&entries[a].name),
+            validate::fold(&entries[b].name),
+        );
         if cfg.natural_sort {
             natural_cmp(&x, &y)
         } else {
@@ -788,7 +794,9 @@ mod tests {
     #[test]
     fn dir_is_renamed_without_ext_suffix() {
         // 目录 "v1.2" 不能被当成 name=v1 + ext=2，改完变成 "项目.v1.2.2"
-        let c = cfg(vec![rule(Action::Prefix { text: "项目-".into() })]);
+        let c = cfg(vec![rule(Action::Prefix {
+            text: "项目-".into(),
+        })]);
         let es = vec![dir_entry(1, "/t", "v1.2")];
         let p = build_plan(&es, &c).unwrap();
         assert_eq!(p.ops[0].new_name, "项目-v1.2");
@@ -800,10 +808,7 @@ mod tests {
     #[test]
     fn dir_with_renamed_child_yields() {
         let c = cfg(vec![rule(Action::Prefix { text: "x_".into() })]);
-        let es = vec![
-            dir_entry(1, "/t", "album"),
-            entry(2, "/t/album", "a.jpg"),
-        ];
+        let es = vec![dir_entry(1, "/t", "album"), entry(2, "/t/album", "a.jpg")];
         let p = build_plan(&es, &c).unwrap();
         let dir_op = p.ops.iter().find(|o| o.is_dir).unwrap();
         assert_eq!(dir_op.status, OpStatus::Conflict);
@@ -825,7 +830,10 @@ mod tests {
         let p = build_plan(&es, &c).unwrap();
         let dir_op = p.ops.iter().find(|o| o.is_dir).unwrap();
         assert_eq!(dir_op.status, OpStatus::Ok, "{dir_op:?}");
-        assert_eq!(p.ops.iter().find(|o| !o.is_dir).unwrap().status, OpStatus::Unchanged);
+        assert_eq!(
+            p.ops.iter().find(|o| !o.is_dir).unwrap().status,
+            OpStatus::Unchanged
+        );
     }
 
     #[test]
@@ -849,7 +857,9 @@ mod tests {
     #[test]
     fn sibling_dirs_rename_together() {
         // 同级的两个目录互不包含，可以一起改
-        let c = cfg(vec![rule(Action::Prefix { text: "2023-".into() })]);
+        let c = cfg(vec![rule(Action::Prefix {
+            text: "2023-".into(),
+        })]);
         let es = vec![dir_entry(1, "/t", "a"), dir_entry(2, "/t", "b")];
         let p = build_plan(&es, &c).unwrap();
         assert_eq!(p.executable, 2, "{:?}", p.ops);
@@ -919,7 +929,11 @@ mod tests {
         let jpg = p.ops.iter().find(|o| o.old_name == "a.jpg").unwrap();
         let png = p.ops.iter().find(|o| o.old_name == "b.png").unwrap();
         assert_eq!(jpg.status, OpStatus::Ok);
-        assert_eq!(png.status, OpStatus::Unchanged, "png 不满足组条件，规则整组跳过");
+        assert_eq!(
+            png.status,
+            OpStatus::Unchanged,
+            "png 不满足组条件，规则整组跳过"
+        );
     }
 
     #[test]

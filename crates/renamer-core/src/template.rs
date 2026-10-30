@@ -34,29 +34,13 @@
 //! 关键设计：解析一次得到 AST，渲染时只做纯字符串计算，不碰文件系统。
 //! 预览和执行共用同一个 `Template` 实例，从根本上杜绝「预览显示 A、实际改成 B」。
 
-use chrono::{Local, TimeZone};
 use crate::model::MediaMeta;
+use chrono::{Local, TimeZone};
 use serde::{Deserialize, Serialize};
 
 const KNOWN_FIELDS: [&str; 18] = [
-    "name",
-    "ext",
-    "dir",
-    "index",
-    "counter",
-    "total",
-    "size",
-    "sizehr",
-    "date",
-    "time",
-    "title",
-    "artist",
-    "album",
-    "track",
-    "duration",
-    "width",
-    "height",
-    "mtime",
+    "name", "ext", "dir", "index", "counter", "total", "size", "sizehr", "date", "time", "title",
+    "artist", "album", "track", "duration", "width", "height", "mtime",
 ];
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -521,10 +505,7 @@ mod tests {
 
     #[test]
     fn default_modifier_on_empty() {
-        let empty = RenderCtx {
-            stem: "",
-            ..ctx()
-        };
+        let empty = RenderCtx { stem: "", ..ctx() };
         let t = parse("{name|default:untitled}").unwrap();
         assert_eq!(t.render(&empty), "untitled");
     }
@@ -581,7 +562,10 @@ mod tests {
         };
         let c = media_ctx(&m);
         assert_eq!(parse("{artist}-{title}").unwrap().render(&c), "周杰伦-夜曲");
-        assert_eq!(parse("{album}|{track}").unwrap().render(&c), "十一月的萧邦|3");
+        assert_eq!(
+            parse("{album}|{track}").unwrap().render(&c),
+            "十一月的萧邦|3"
+        );
         assert_eq!(parse("{duration}").unwrap().render(&c), "225");
         assert_eq!(parse("{duration:clock}").unwrap().render(&c), "03-45");
         assert_eq!(parse("{width}x{height}").unwrap().render(&c), "1920x1080");
@@ -602,7 +586,10 @@ mod tests {
             stem: "张伟的照片",
             ..ctx()
         };
-        assert_eq!(parse("{name|pinyin}").unwrap().render(&cn), "zhangweidezhaopian");
+        assert_eq!(
+            parse("{name|pinyin}").unwrap().render(&cn),
+            "zhangweidezhaopian"
+        );
         // 转完还能继续串其它修饰符
         assert_eq!(
             parse("{name|pinyin|replace: :_}").unwrap().render(&cn),
@@ -616,6 +603,9 @@ mod tests {
             duration_ms: 3_930_000, // 1:05:30
             ..Default::default()
         };
-        assert_eq!(parse("{duration:clock}").unwrap().render(&media_ctx(&m)), "1-05-30");
+        assert_eq!(
+            parse("{duration:clock}").unwrap().render(&media_ctx(&m)),
+            "1-05-30"
+        );
     }
 }

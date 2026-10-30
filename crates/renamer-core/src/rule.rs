@@ -154,7 +154,9 @@ impl Filter {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Action {
     /// 占位符模板，见 template.rs
-    Template { template: String },
+    Template {
+        template: String,
+    },
     /// 查找替换，支持正则与 $1 捕获组
     Replace {
         find: String,
@@ -192,8 +194,12 @@ pub enum Action {
         #[serde(default)]
         base: CounterBase,
     },
-    Prefix { text: String },
-    Suffix { text: String },
+    Prefix {
+        text: String,
+    },
+    Suffix {
+        text: String,
+    },
     /// 在指定字符位置插入文本
     Insert {
         text: String,
@@ -226,7 +232,9 @@ pub enum Action {
         at: Option<usize>,
     },
     /// 直接设定扩展名，比如 jpeg → jpg
-    SetExt { ext: String },
+    SetExt {
+        ext: String,
+    },
     Truncate {
         max_chars: usize,
         #[serde(default)]
@@ -691,10 +699,7 @@ fn insert_at(s: &str, text: &str, at: Option<usize>) -> String {
 }
 
 fn char_index_to_byte(s: &str, idx: usize) -> usize {
-    s.char_indices()
-        .nth(idx)
-        .map(|(b, _)| b)
-        .unwrap_or(s.len())
+    s.char_indices().nth(idx).map(|(b, _)| b).unwrap_or(s.len())
 }
 
 fn to_halfwidth(s: &str) -> String {
@@ -886,23 +891,53 @@ mod tests {
     #[test]
     fn case_modes() {
         assert_eq!(
-            run(r(Action::Case { mode: CaseMode::Upper }), "abc.txt", 1),
+            run(
+                r(Action::Case {
+                    mode: CaseMode::Upper
+                }),
+                "abc.txt",
+                1
+            ),
             "ABC"
         );
         assert_eq!(
-            run(r(Action::Case { mode: CaseMode::Snake }), "My Photo File.jpg", 1),
+            run(
+                r(Action::Case {
+                    mode: CaseMode::Snake
+                }),
+                "My Photo File.jpg",
+                1
+            ),
             "my_photo_file"
         );
         assert_eq!(
-            run(r(Action::Case { mode: CaseMode::Kebab }), "MyPhotoFile.jpg", 1),
+            run(
+                r(Action::Case {
+                    mode: CaseMode::Kebab
+                }),
+                "MyPhotoFile.jpg",
+                1
+            ),
             "my-photo-file"
         );
         assert_eq!(
-            run(r(Action::Case { mode: CaseMode::Camel }), "my photo file.jpg", 1),
+            run(
+                r(Action::Case {
+                    mode: CaseMode::Camel
+                }),
+                "my photo file.jpg",
+                1
+            ),
             "myPhotoFile"
         );
         assert_eq!(
-            run(r(Action::Case { mode: CaseMode::Title }), "my photo.jpg", 1),
+            run(
+                r(Action::Case {
+                    mode: CaseMode::Title
+                }),
+                "my photo.jpg",
+                1
+            ),
             "My Photo"
         );
     }
@@ -956,7 +991,14 @@ mod tests {
             "a-S"
         );
         assert_eq!(
-            run(r(Action::Insert { text: "_X_".into(), at: 1 }), "abcd.jpg", 1),
+            run(
+                r(Action::Insert {
+                    text: "_X_".into(),
+                    at: 1
+                }),
+                "abcd.jpg",
+                1
+            ),
             "a_X_bcd"
         );
     }
@@ -993,17 +1035,17 @@ mod tests {
     #[test]
     fn trim_and_truncate() {
         assert_eq!(
-            run(r(Action::Trim { chars: String::new() }), "  a  .txt", 1),
+            run(
+                r(Action::Trim {
+                    chars: String::new()
+                }),
+                "  a  .txt",
+                1
+            ),
             "a"
         );
         assert_eq!(
-            run(
-                r(Action::Trim {
-                    chars: "_-".into()
-                }),
-                "__a__-b--",
-                1
-            ),
+            run(r(Action::Trim { chars: "_-".into() }), "__a__-b--", 1),
             "a__-b"
         );
         assert_eq!(
@@ -1060,9 +1102,7 @@ mod tests {
             target: Target::Ext,
             filter: Filter::default(),
             group: None,
-            action: Action::SetExt {
-                ext: ".jpg".into(),
-            },
+            action: Action::SetExt { ext: ".jpg".into() },
         };
         let e = entry("photo.jpeg");
         let c = rule.compile().unwrap();
@@ -1128,7 +1168,14 @@ mod tests {
     #[test]
     fn unicode_safe_insert() {
         assert_eq!(
-            run(r(Action::Insert { text: "-".into(), at: 2 }), "中文名.jpg", 1),
+            run(
+                r(Action::Insert {
+                    text: "-".into(),
+                    at: 2
+                }),
+                "中文名.jpg",
+                1
+            ),
             "中文-名"
         );
     }

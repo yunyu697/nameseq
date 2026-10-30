@@ -135,7 +135,12 @@ fn is_hidden(p: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn make_entry(path: &Path, id: u64, seen: &mut HashSet<String>, opts: &ScanOptions) -> Option<FileEntry> {
+fn make_entry(
+    path: &Path,
+    id: u64,
+    seen: &mut HashSet<String>,
+    opts: &ScanOptions,
+) -> Option<FileEntry> {
     // 同一路径被拖进来两次时去重
     let key = validate::fold(&path.to_string_lossy());
     if !seen.insert(key) {

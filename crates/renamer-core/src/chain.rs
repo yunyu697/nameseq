@@ -58,8 +58,8 @@ impl ChainFile {
     }
 
     pub fn parse(text: &str) -> Result<Self, String> {
-        let file: Self = serde_json::from_str(text)
-            .map_err(|e| format!("不是有效的规则链文件：{e}"))?;
+        let file: Self =
+            serde_json::from_str(text).map_err(|e| format!("不是有效的规则链文件：{e}"))?;
         file.validate()?;
         Ok(file)
     }
@@ -166,7 +166,9 @@ mod tests {
         let mut c = cfg();
         c.rules.clear();
         let f = ChainFile::from_config("空", &c);
-        assert!(ChainFile::parse(&f.to_json()).unwrap_err().contains("一条规则"));
+        assert!(ChainFile::parse(&f.to_json())
+            .unwrap_err()
+            .contains("一条规则"));
     }
 
     #[test]
@@ -216,8 +218,7 @@ mod tests {
         assert_eq!(back.config.groups[0].id, "g1");
         assert!(!back.config.groups[0].enabled, "整组停用的状态要保留");
         assert_eq!(
-            back.config.groups[0].filter.name_matches,
-            r"\.(jpg|png)$",
+            back.config.groups[0].filter.name_matches, r"\.(jpg|png)$",
             "整组条件要保留"
         );
         assert_eq!(back.config.rules[0].group.as_deref(), Some("g1"));

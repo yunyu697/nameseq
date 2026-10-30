@@ -12,6 +12,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      # Windows runner 上从零编译要七八分钟，缓存 target 能压到一分钟上下
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/renamer-core
+            crates/nameseq-cli
       - name: 引擎测试（扫描 / 规划 / 执行 / 撤销 / 恢复）
         working-directory: crates/renamer-core
         run: cargo test
