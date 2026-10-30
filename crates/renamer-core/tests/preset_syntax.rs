@@ -33,6 +33,7 @@ fn rule(action: Action) -> Rule {
         enabled: true,
         target: Target::Stem,
         filter: Filter::default(),
+        group: None,
         action,
     }
 }

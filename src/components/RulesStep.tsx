@@ -14,7 +14,8 @@ import {
   type Preset,
   type PresetGroup,
 } from "../presets";
-import type { Action, Rule } from "../types";
+import type { Action, Rule, RuleGroup } from "../types";
+import GroupBar from "./GroupBar";
 import RuleEditor from "./RuleEditor";
 import {
   IconChevron,
@@ -41,6 +42,13 @@ interface Props {
   onDeletePreset: (id: string) => void;
   onImportChain: () => void;
   onExportChain: () => void;
+  /** 规则分组：整组停用与整组条件 */
+  groups: RuleGroup[];
+  onChangeGroup: (g: RuleGroup) => void;
+  onRemoveGroup: (id: string) => void;
+  onAddGroup: () => void;
+  onSetGroupOf: (ruleId: string, groupId: string | null) => void;
+  onCreateGroupFor: (ruleId: string) => void;
 }
 
 type Panel = "lib" | "presets" | null;
@@ -61,6 +69,13 @@ export default function RulesStep({
   onDeletePreset,
   onImportChain,
   onExportChain,
+  // 规则分组。这里叫 ruleGroups 是因为下面 preset 那边已经用了 groups
+  groups: ruleGroups,
+  onChangeGroup,
+  onRemoveGroup,
+  onAddGroup,
+  onSetGroupOf,
+  onCreateGroupFor,
 }: Props) {
   // 规则库和预设不再常驻版面，需要时点按钮唤出。
   // 规则链还是空的就先自动展开预设，给用户一个直接可点的起点。
@@ -372,6 +387,16 @@ export default function RulesStep({
         )}
       </div>
 
+      {rules.length > 0 && (
+        <GroupBar
+          groups={ruleGroups}
+          rules={rules}
+          onChange={onChangeGroup}
+          onRemove={onRemoveGroup}
+          onAdd={onAddGroup}
+        />
+      )}
+
       <section className="chain">
         <header className="chain-head">
           <h3>规则链</h3>
@@ -379,6 +404,8 @@ export default function RulesStep({
             {rules.length} 条
             {rules.some((r) => !r.enabled) &&
               ` · ${rules.filter((r) => !r.enabled).length} 条已停用`}
+            {ruleGroups.some((g) => !g.enabled) &&
+              ` · ${ruleGroups.filter((g) => !g.enabled).length} 组已停用`}
           </span>
           <span className="chain-hint">从上到下依次执行</span>
           {rules.length > 1 && (
@@ -406,10 +433,13 @@ export default function RulesStep({
                 canDown={i < rules.length - 1}
                 open={openIds.has(r.id)}
                 removing={removing.has(r.id)}
+                groups={ruleGroups}
                 onToggleOpen={() => onToggleOpen(r.id)}
                 onChange={onChangeRule}
                 onRemove={() => onRemoveRule(r.id)}
                 onMove={(d) => onMoveRule(r.id, d)}
+                onSetGroup={onSetGroupOf}
+                onCreateGroup={onCreateGroupFor}
               />
             ))}
           </div>

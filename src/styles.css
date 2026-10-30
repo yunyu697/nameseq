@@ -1378,10 +1378,14 @@ body.col-resizing * {
 .rule-foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   border-top: 1px dashed var(--border);
   padding-top: 8px;
+  flex-wrap: wrap;
+}
+/* 「作用于」「分组」靠左排，条件按钮推到最右 */
+.rule-foot > .pill-btn {
+  margin-left: auto;
 }
 .pill-btn {
   display: inline-flex;
@@ -1412,6 +1416,171 @@ body.col-resizing * {
   border-radius: var(--r-1);
   padding: 10px;
   animation: itemIn 0.22s var(--ease-out);
+}
+
+/* ---------- 规则分组 ---------- */
+
+.group-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px 11px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  background: var(--panel-2);
+  margin-bottom: 10px;
+}
+.group-bar-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.group-bar-head > svg {
+  color: var(--accent);
+  flex: none;
+}
+.group-bar-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-stat {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--text-3);
+  background: var(--panel-3);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.group-stat.off {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+.group-empty {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.7;
+}
+
+.group-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.group-chip {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gc, var(--accent));
+  border-radius: var(--r-1);
+  background: var(--panel);
+  transition: opacity 0.18s var(--ease), border-color 0.18s;
+}
+.group-chip.off {
+  opacity: 0.62;
+  border-left-color: var(--text-3);
+}
+.group-chip.is-open {
+  border-color: var(--gc, var(--accent));
+}
+.group-chip-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+}
+.group-chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gc, var(--accent));
+  flex: none;
+}
+.group-chip.off .dot {
+  background: var(--text-3);
+}
+.group-name {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  font-size: 12px;
+  color: var(--text-1);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+.group-name:hover {
+  border-color: var(--border);
+}
+.group-name:focus {
+  background: var(--panel-3);
+  border-color: var(--accent-line);
+}
+.group-count {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.group-chip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 10px 10px;
+  animation: itemIn 0.22s var(--ease-out);
+}
+.group-chip-body .fld > span {
+  font-size: 10.5px;
+}
+.pill-btn.sm {
+  padding: 2px 8px;
+  font-size: 10.5px;
+}
+
+/* 规则卡片上的分组徽标 */
+.group-dot-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  max-width: 130px;
+  font-size: 10.5px;
+  padding: 1px 7px 1px 5px;
+  border-radius: 999px;
+  color: var(--gc, var(--accent));
+  background: color-mix(in srgb, var(--gc, var(--accent)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gc, var(--accent)) 34%, transparent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-dot-tag .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gc, var(--accent));
+  flex: none;
+}
+.group-dot-tag.off {
+  color: var(--text-3);
+  background: var(--panel-3);
+  border-color: var(--border);
+  text-decoration: line-through;
+}
+.group-dot-tag.off .dot {
+  background: var(--text-3);
+}
+.group-dot-tag em {
+  font-style: normal;
+  font-size: 9.5px;
+  color: var(--warn);
+  text-decoration: none;
+  padding-left: 3px;
+}
+.group-pick {
+  flex: none;
 }
 
 /* ---------- 占位符 / 修饰符标签 ---------- */

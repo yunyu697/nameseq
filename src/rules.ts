@@ -1,4 +1,4 @@
-import type { Action, CaseMode, Filter, Rule } from "./types";
+import type { Action, CaseMode, Filter, Rule, RuleGroup } from "./types";
 
 export const ACTION_LABELS: Record<Action["kind"], string> = {
   template: "模板",
@@ -65,6 +65,15 @@ export function emptyFilter(): Filter {
     modifiedAfter: null,
     modifiedBefore: null,
   };
+}
+
+/** 分组配色。按分组在列表里的次序取色，同一个组在规则卡片和分组条上才会是同一个颜色。 */
+const GROUP_HUES = [212, 268, 152, 32, 340, 190, 96, 16, 250, 128];
+
+export function groupHue(id: string, groups: RuleGroup[]): string {
+  const i = groups.findIndex((g) => g.id === id);
+  const h = GROUP_HUES[(i < 0 ? 0 : i) % GROUP_HUES.length];
+  return `hsl(${h} 70% 58%)`;
 }
 
 export function filterIsActive(f: Filter): boolean {

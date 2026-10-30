@@ -98,7 +98,17 @@ export interface Rule {
   enabled: boolean;
   target: Target;
   filter: Filter;
+  /** 所属分组 id；undefined/null = 不分组 */
+  group?: string | null;
   action: Action;
+}
+
+/** 规则分组：整组停用、整组加条件 */
+export interface RuleGroup {
+  id: string;
+  name: string;
+  enabled: boolean;
+  filter: Filter;
 }
 
 export interface RenameConfig {
@@ -110,6 +120,7 @@ export interface RenameConfig {
   startIndex: number;
   indexStep: number;
   conflict: ConflictPolicy;
+  groups: RuleGroup[];
   excluded: number[];
 }
 

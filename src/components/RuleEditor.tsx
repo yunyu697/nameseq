@@ -6,6 +6,7 @@ import {
   MODIFIERS,
   PLACEHOLDERS,
   filterIsActive,
+  groupHue,
   ruleTags,
   summarizeRule,
   type TokenHint,
@@ -18,8 +19,11 @@ import type {
   DateSource,
   Filter,
   Rule,
+  RuleGroup,
   Target,
 } from "../types";
+import { Num } from "./FilterFields";
+import FilterFields from "./FilterFields";
 import {
   IconArrowDown,
   IconArrowUp,
@@ -27,37 +31,6 @@ import {
   IconFilter,
   IconTrash,
 } from "./Icons";
-
-function Num({
-  value,
-  onChange,
-  placeholder,
-  min = 0,
-  width = 60,
-}: {
-  value: number | null;
-  onChange: (v: number | null) => void;
-  placeholder?: string;
-  min?: number;
-  width?: number;
-}) {
-  return (
-    <input
-      type="number"
-      className="num"
-      style={{ width }}
-      min={min}
-      value={value === null ? "" : value}
-      placeholder={placeholder}
-      onChange={(e) => {
-        const raw = e.target.value;
-        if (raw === "") return onChange(null);
-        const n = Number(raw);
-        onChange(Number.isFinite(n) ? n : null);
-      }}
-    />
-  );
-}
 
 /** 悬停/聚焦时更新说明的标签组。 */
 function TokenRow({
@@ -121,10 +94,14 @@ interface Props {
   canDown: boolean;
   open: boolean;
   removing?: boolean;
+  /** 全部分组，用来把 group id 换成能看的名字 */
+  groups: RuleGroup[];
   onToggleOpen: () => void;
   onChange: (r: Rule) => void;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
+  onSetGroup: (ruleId: string, groupId: string | null) => void;
+  onCreateGroup: (ruleId: string) => void;
 }
 
 export default function RuleEditor({
@@ -134,15 +111,21 @@ export default function RuleEditor({
   canDown,
   open,
   removing,
+  groups,
   onToggleOpen,
   onChange,
   onRemove,
   onMove,
+  onSetGroup,
+  onCreateGroup,
 }: Props) {
   const a = rule.action;
   const [showFilter, setShowFilter] = useState(false);
   const [hint, setHint] = useState<TokenHint | null>(null);
   const filterOn = filterIsActive(rule.filter);
+  // 组可能已经被删了：按「查得到才算有组」处理，和 Rust 侧一致
+  const myGroup = groups.find((g) => g.id === rule.group) ?? null;
+  const groupOff = myGroup ? !myGroup.enabled : false;
 
   const tplRef = useRef<HTMLInputElement>(null);
   const fmtRef = useRef<HTMLInputElement>(null);
@@ -618,6 +601,22 @@ export default function RuleEditor({
 
         <span className="rule-idx">{index + 1}</span>
 
+        {myGroup && (
+          <span
+            className={`group-dot-tag ${groupOff ? "off" : ""}`}
+            style={{ ["--gc" as string]: groupHue(myGroup.id, groups) }}
+            title={
+              groupOff
+                ? `分组「${myGroup.name}」已停用，这条规则不会生效`
+                : `属于分组「${myGroup.name}」`
+            }
+          >
+            <i className="dot" />
+            {myGroup.name}
+            {groupOff && <em>已停用</em>}
+          </span>
+        )}
+
         <span className="rule-kind">{ACTION_LABELS[a.kind]}</span>
 
         <span className="rule-sum" title={summarizeRule(a)}>
@@ -685,51 +684,30 @@ export default function RuleEditor({
                 <IconFilter />
                 条件{filterOn ? " · 已设" : ""}
               </button>
+              <label className="fld inline-short group-pick">
+                <span>分组</span>
+                <select
+                  value={rule.group ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "__new") onCreateGroup(rule.id);
+                    else onSetGroup(rule.id, v === "" ? null : v);
+                  }}
+                >
+                  <option value="">不分组</option>
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                  <option value="__new">+ 新建分组…</option>
+                </select>
+              </label>
             </div>
 
             {showFilter && (
               <div className="rule-filter">
-                <label className="fld">
-                  <span>只对扩展名生效（逗号分隔，留空不限）</span>
-                  <input
-                    className="mono"
-                    value={rule.filter.exts.join(",")}
-                    placeholder="jpg,png"
-                    onChange={(e) =>
-                      setFilter({
-                        exts: e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                  />
-                </label>
-                <label className="fld">
-                  <span>文件名需匹配正则</span>
-                  <input
-                    className="mono"
-                    value={rule.filter.nameMatches}
-                    placeholder="^IMG_"
-                    onChange={(e) => setFilter({ nameMatches: e.target.value })}
-                  />
-                </label>
-                <div className="grid2">
-                  <label className="fld">
-                    <span>最小字节</span>
-                    <Num
-                      value={rule.filter.minSize}
-                      onChange={(v) => setFilter({ minSize: v })}
-                    />
-                  </label>
-                  <label className="fld">
-                    <span>最大字节</span>
-                    <Num
-                      value={rule.filter.maxSize}
-                      onChange={(v) => setFilter({ maxSize: v })}
-                    />
-                  </label>
-                </div>
+                <FilterFields filter={rule.filter} onChange={setFilter} />
               </div>
             )}
           </div>

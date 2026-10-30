@@ -626,6 +626,7 @@ export function cloneRules(rules: Rule[]): Rule[] {
       enabled: r.enabled,
       target: r.target,
       filter: { ...r.filter, exts: [...r.filter.exts] },
+      group: null, // 预设不带分组：套用后归到最外层
       action: { ...r.action },
     };
   });

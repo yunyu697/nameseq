@@ -573,6 +573,7 @@ mod tests {
                     enabled: true,
                     target: Target::Stem,
                     filter: Filter::default(),
+                    group: None,
                     action: Action::Template {
                         template: "photo-{index:2}".into(),
                     },
@@ -713,6 +714,7 @@ mod tests {
                     enabled: true,
                     target: Target::Stem,
                     filter: Filter::default(),
+                    group: None,
                     action: Action::Prefix {
                         text: "2023-".into(),
                     },

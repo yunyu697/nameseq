@@ -55,6 +55,7 @@ fn rule(action: Action) -> Rule {
         enabled: true,
         target: Target::Stem,
         filter: Filter::default(),
+        group: None,
         action,
     }
 }
@@ -322,6 +323,7 @@ fn set_ext_and_keep_ext_compose() {
         enabled: true,
         target: Target::Ext,
         filter: Filter::default(),
+        group: None,
         action: Action::SetExt { ext: "png".into() },
     });
     let plan = build_plan(&entries, &cfg).unwrap();

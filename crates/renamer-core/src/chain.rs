@@ -6,8 +6,9 @@
 //!
 //! 文件就是 UTF-8 的 JSON，用 `.nsq` 后缀是为了双击/拖进窗口时能和普通 json 区分开。
 
-use crate::planner::RenameConfig;
+use crate::planner::{compile_filter_re, RenameConfig};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// 当前能读写的格式版本。读到更大的版本号直接拒绝——
 /// 用新版本存的规则链在旧版本里少读几个字段，改出来的名字可能是错的。
@@ -36,6 +37,14 @@ impl ChainFile {
     pub fn from_config(name: &str, cfg: &RenameConfig) -> Self {
         let mut config = cfg.clone();
         config.excluded.clear();
+        // 没有规则引用的分组也一并丢掉：留着它，下次打开会看到一个
+        // 「谁都不属于它」的开关，改了却不影响任何结果，徒增困惑。
+        let used: HashSet<&str> = config
+            .rules
+            .iter()
+            .filter_map(|r| r.group.as_deref())
+            .collect();
+        config.groups.retain(|g| used.contains(g.id.as_str()));
         Self {
             version: CHAIN_VERSION,
             name: name.trim().to_string(),
@@ -66,6 +75,19 @@ impl ChainFile {
         }
         if self.config.rules.is_empty() {
             return Err("规则链里一条规则都没有".into());
+        }
+        // 组 id 重复时「谁说了算」是不确定的，趁早挡住
+        let mut seen: HashSet<&str> = HashSet::new();
+        for g in self.config.groups.iter() {
+            if g.id.trim().is_empty() {
+                return Err(format!("分组「{}」没有 id", g.display_name()));
+            }
+            if !seen.insert(g.id.as_str()) {
+                return Err(format!("分组 id 重复了：{}", g.id));
+            }
+            // 组条件里的正则同样当场编译一遍：它虽然挂在组上，报错却会一路推迟到改名方案
+            compile_filter_re(&g.filter)
+                .map_err(|e| format!("分组「{}」：{e}", g.display_name()))?;
         }
         for (i, r) in self.config.rules.iter().enumerate() {
             r.compile()
@@ -107,6 +129,7 @@ mod tests {
                 enabled: true,
                 target: Target::Stem,
                 filter: Filter::default(),
+                group: None,
                 action: Action::Template {
                     template: "{name}-{index:3}".into(),
                 },
@@ -154,6 +177,7 @@ mod tests {
             enabled: true,
             target: Target::Stem,
             filter: Filter::default(),
+            group: None,
             action: Action::Replace {
                 find: "([".into(),
                 with: "".into(),
@@ -171,6 +195,85 @@ mod tests {
         assert_eq!(f.file_stem(), "a-b-c-d");
         f.name = "   ".into();
         assert_eq!(f.file_stem(), "规则链");
+    }
+
+    #[test]
+    fn roundtrip_keeps_groups() {
+        // 分组要跟着导出：整组停用和整组条件是这套功能的核心，丢了就白设了
+        let mut c = cfg();
+        c.rules[0].group = Some("g1".into());
+        c.groups = vec![crate::rule::RuleGroup {
+            id: "g1".into(),
+            name: "照片专用".into(),
+            enabled: false,
+            filter: Filter {
+                name_matches: r"\.(jpg|png)$".into(),
+                ..Default::default()
+            },
+        }];
+        let back = ChainFile::parse(&ChainFile::from_config("带分组", &c).to_json()).unwrap();
+        assert_eq!(back.config.groups.len(), 1);
+        assert_eq!(back.config.groups[0].id, "g1");
+        assert!(!back.config.groups[0].enabled, "整组停用的状态要保留");
+        assert_eq!(
+            back.config.groups[0].filter.name_matches,
+            r"\.(jpg|png)$",
+            "整组条件要保留"
+        );
+        assert_eq!(back.config.rules[0].group.as_deref(), Some("g1"));
+    }
+
+    #[test]
+    fn export_drops_orphan_groups() {
+        // 规则早就删光了、只剩空壳的分组不该跟着存进文件
+        let mut c = cfg();
+        c.groups = vec![crate::rule::RuleGroup {
+            id: "ghost".into(),
+            name: "没人用".into(),
+            enabled: true,
+            filter: Filter::default(),
+        }];
+        let back = ChainFile::parse(&ChainFile::from_config("x", &c).to_json()).unwrap();
+        assert!(back.config.groups.is_empty());
+    }
+
+    #[test]
+    fn rejects_duplicate_group_ids() {
+        let mut c = cfg();
+        c.rules[0].group = Some("g".into());
+        c.groups = vec![
+            crate::rule::RuleGroup {
+                id: "g".into(),
+                name: "".into(),
+                enabled: true,
+                filter: Filter::default(),
+            },
+            crate::rule::RuleGroup {
+                id: "g".into(),
+                name: "".into(),
+                enabled: true,
+                filter: Filter::default(),
+            },
+        ];
+        let err = ChainFile::parse(&ChainFile::from_config("x", &c).to_json()).unwrap_err();
+        assert!(err.contains("分组 id 重复"), "{err}");
+    }
+
+    #[test]
+    fn rejects_broken_group_filter() {
+        let mut c = cfg();
+        c.rules[0].group = Some("g".into());
+        c.groups = vec![crate::rule::RuleGroup {
+            id: "g".into(),
+            name: "坏了的条件".into(),
+            enabled: true,
+            filter: Filter {
+                name_matches: "([".into(),
+                ..Default::default()
+            },
+        }];
+        let err = ChainFile::parse(&ChainFile::from_config("x", &c).to_json()).unwrap_err();
+        assert!(err.contains("坏了的条件"), "{err}");
     }
 
     #[test]

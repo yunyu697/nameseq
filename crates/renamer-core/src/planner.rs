@@ -9,13 +9,26 @@
 //! 每条 Counter 规则有自己独立的计数器，互不干扰。
 
 use crate::model::{FileEntry, OpStatus, RenameOp};
-use crate::rule::{Action, ConflictPolicy, EvalCtx, NameState, Rule};
+use crate::rule::{Action, ConflictPolicy, EvalCtx, Filter, NameState, Rule};
 use crate::template::TemplateError;
 use crate::validate;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+
+/// 组条件里的「文件名正则」。和规则条件的处理方式一致：编译一次，逐文件复用。
+pub(crate) fn compile_filter_re(f: &Filter) -> Result<Option<Regex>, String> {
+    if f.name_matches.trim().is_empty() {
+        return Ok(None);
+    }
+    regex::RegexBuilder::new(&f.name_matches)
+        .case_insensitive(true)
+        .build()
+        .map(Some)
+        .map_err(|e| format!("分组条件里的正则写错了: {e}"))
+}
 
 fn d_true() -> bool {
     true
@@ -59,6 +72,9 @@ pub struct RenameConfig {
     pub index_step: usize,
     #[serde(default)]
     pub conflict: ConflictPolicy,
+    /// 规则分组（整组停用 / 整组条件）
+    #[serde(default)]
+    pub groups: Vec<crate::rule::RuleGroup>,
     /// 被用户手动取消勾选的文件 id
     #[serde(default)]
     pub excluded: Vec<u64>,
@@ -72,6 +88,7 @@ impl Default for RenameConfig {
                 enabled: true,
                 target: crate::rule::Target::Stem,
                 filter: Default::default(),
+                group: None,
                 action: Action::Template {
                     template: "{name}".into(),
                 },
@@ -83,6 +100,7 @@ impl Default for RenameConfig {
             start_index: 1,
             index_step: 1,
             conflict: ConflictPolicy::Skip,
+            groups: Vec::new(),
             excluded: Vec::new(),
         }
     }
@@ -109,8 +127,28 @@ pub struct Plan {
 }
 
 pub fn build_plan(entries: &[FileEntry], cfg: &RenameConfig) -> Result<Plan, PlanError> {
+    // 分组先编译：整组停用的规则直接不进列表，组条件留到逐个文件时再判
+    let mut group_filters: HashMap<String, (Filter, Option<Regex>)> = HashMap::new();
+    for g in cfg.groups.iter().filter(|g| g.enabled) {
+        let re = compile_filter_re(&g.filter).map_err(PlanError::Rule)?;
+        group_filters.insert(g.id.clone(), (g.filter.clone(), re));
+    }
+    let group_enabled: HashSet<&str> = cfg
+        .groups
+        .iter()
+        .filter(|g| g.enabled)
+        .map(|g| g.id.as_str())
+        .collect();
+
     let mut compiled = Vec::new();
     for r in cfg.rules.iter().filter(|r| r.enabled) {
+        // 规则挂在一个停用的组上，等于整组停用。
+        // 挂在「不存在的组」上按不分组处理——手写的 .nsq 里 group 写错了不该让整批算不出来
+        if let Some(gid) = &r.group {
+            if cfg.groups.iter().any(|g| &g.id == gid) && !group_enabled.contains(gid.as_str()) {
+                continue;
+            }
+        }
         compiled.push(r.compile().map_err(PlanError::Rule)?);
     }
 
@@ -148,6 +186,14 @@ pub fn build_plan(entries: &[FileEntry], cfg: &RenameConfig) -> Result<Plan, Pla
         let mut failure: Option<String> = None;
 
         for (ri, cr) in compiled.iter().enumerate() {
+            // 组条件不满足 → 组内这条规则对这个文件不生效
+            if let Some(gid) = &cr.rule.group {
+                if let Some((gf, gre)) = group_filters.get(gid.as_str()) {
+                    if gf.is_active() && !gf.matches(e, gre.as_ref()) {
+                        continue;
+                    }
+                }
+            }
             if !cr.accepts(e) {
                 continue;
             }
@@ -509,6 +555,7 @@ mod tests {
             enabled: true,
             target: Target::Stem,
             filter: Filter::default(),
+            group: None,
             action,
         }
     }
@@ -708,6 +755,7 @@ mod tests {
             enabled: true,
             target: Target::Ext,
             filter: Filter::default(),
+            group: None,
             action: Action::SetExt { ext: "jpg".into() },
         }]);
         let es = vec![entry(1, "/t", "photo.jpeg")];
@@ -828,6 +876,77 @@ mod tests {
         assert_eq!(p.ops[0].old_name, "阿七.jpg");
         assert_eq!(p.ops[1].old_name, "李四.jpg");
         assert_eq!(p.ops[2].old_name, "张三.jpg");
+    }
+
+    #[test]
+    fn disabled_group_skips_its_rules() {
+        use crate::rule::RuleGroup;
+        let mut c = cfg(vec![rule(Action::Prefix { text: "a-".into() })]);
+        c.rules.push(Rule {
+            id: "r2".into(),
+            enabled: true,
+            target: Target::Stem,
+            filter: Filter::default(),
+            group: Some("g1".into()),
+            action: Action::Suffix { text: "-b".into() },
+        });
+        c.groups = vec![RuleGroup {
+            id: "g1".into(),
+            name: "停用的组".into(),
+            enabled: false,
+            filter: Filter::default(),
+        }];
+        let p = build_plan(&[entry(1, "/t", "x.jpg")], &c).unwrap();
+        assert_eq!(p.ops[0].new_name, "a-x.jpg", "组停了，组内的后缀不该生效");
+    }
+
+    #[test]
+    fn group_filter_gates_all_rules_inside() {
+        use crate::rule::RuleGroup;
+        let mut c = cfg(vec![rule(Action::Prefix { text: "p-".into() })]);
+        c.rules[0].group = Some("jpg".into());
+        c.groups = vec![RuleGroup {
+            id: "jpg".into(),
+            name: "只对 jpg".into(),
+            enabled: true,
+            filter: Filter {
+                exts: vec!["jpg".into()],
+                ..Default::default()
+            },
+        }];
+        let es = vec![entry(1, "/t", "a.jpg"), entry(2, "/t", "b.png")];
+        let p = build_plan(&es, &c).unwrap();
+        let jpg = p.ops.iter().find(|o| o.old_name == "a.jpg").unwrap();
+        let png = p.ops.iter().find(|o| o.old_name == "b.png").unwrap();
+        assert_eq!(jpg.status, OpStatus::Ok);
+        assert_eq!(png.status, OpStatus::Unchanged, "png 不满足组条件，规则整组跳过");
+    }
+
+    #[test]
+    fn unknown_group_id_is_treated_as_ungrouped() {
+        // 手写的 .nsq 里 group 指向一个不存在的分组：不该让整批算不出来
+        let mut c = cfg(vec![rule(Action::Prefix { text: "x-".into() })]);
+        c.rules[0].group = Some("ghost".into());
+        let p = build_plan(&[entry(1, "/t", "a.jpg")], &c).unwrap();
+        assert_eq!(p.ops[0].new_name, "x-a.jpg");
+    }
+
+    #[test]
+    fn broken_group_filter_reports_error() {
+        use crate::rule::RuleGroup;
+        let mut c = cfg(vec![rule(Action::Prefix { text: "x-".into() })]);
+        c.rules[0].group = Some("g".into());
+        c.groups = vec![RuleGroup {
+            id: "g".into(),
+            name: "坏正则".into(),
+            enabled: true,
+            filter: Filter {
+                name_matches: "([".into(),
+                ..Default::default()
+            },
+        }];
+        let err = build_plan(&[entry(1, "/t", "a.jpg")], &c).unwrap_err();
+        assert!(err.to_string().contains("分组条件"), "{err}");
     }
 
     #[test]

@@ -44,6 +44,7 @@ import type {
   RenameConfig,
   RenameOp,
   Rule,
+  RuleGroup,
 } from "./types";
 import { humanSize } from "./util";
 
@@ -56,6 +57,7 @@ const DEFAULT_CONFIG: RenameConfig = {
   startIndex: 1,
   indexStep: 1,
   conflict: "skip",
+  groups: [],
   excluded: [],
 };
 
@@ -235,9 +237,19 @@ export default function App() {
           ...r,
           enabled: r.enabled ?? true,
           target: r.target ?? "stem",
+          group: r.group ?? null,
           filter: { ...emptyFilter(), ...(r.filter ?? {}) },
         }));
-        setConfig({ ...chain.config, rules, excluded: [] });
+        // 分组同样可能整个缺失（0.7 之前存的规则链），不能假定它一定是数组
+        const withCfg = chain.config as Partial<RenameConfig>;
+        const rawGroups = Array.isArray(withCfg.groups) ? withCfg.groups : [];
+        const groups = rawGroups.map((g) => ({
+          id: g.id || `g${Math.random().toString(36).slice(2, 8)}`,
+          name: g.name ?? "分组",
+          enabled: g.enabled ?? true,
+          filter: { ...emptyFilter(), ...(g.filter ?? {}) },
+        }));
+        setConfig({ ...chain.config, rules, groups, excluded: [] });
         setOpenIds(new Set());
         setCollapsed((c) => ({ ...c, rules: false }));
         notify(
@@ -776,11 +788,64 @@ export default function App() {
       return n;
     });
 
+  // ---- 规则分组 ----
+  /** 返回新分组的 id，方便接着把某条规则塞进去 */
+  const addGroup = () => {
+    const id = `g${Date.now().toString(36)}`;
+    setConfig((c) => ({
+      ...c,
+      groups: [
+        ...c.groups,
+        {
+          id,
+          name: `分组 ${c.groups.length + 1}`,
+          enabled: true,
+          filter: emptyFilter(),
+        },
+      ],
+    }));
+    return id;
+  };
+
+  const changeGroup = (g: RuleGroup) =>
+    setConfig((c) => ({
+      ...c,
+      groups: c.groups.map((x) => (x.id === g.id ? g : x)),
+    }));
+
+  // 删组不删规则：组只是规则上的标签，规则本身该留着
+  const removeGroup = (id: string) =>
+    setConfig((c) => ({
+      ...c,
+      groups: c.groups.filter((g) => g.id !== id),
+      rules: c.rules.map((r) => (r.group === id ? { ...r, group: null } : r)),
+    }));
+
+  const setGroupOf = (ruleId: string, groupId: string | null) =>
+    setConfig((c) => ({
+      ...c,
+      rules: c.rules.map((r) =>
+        r.id === ruleId ? { ...r, group: groupId } : r,
+      ),
+    }));
+
+  /** 在规则卡片里选「新建分组」时：建好直接归进去，省一步 */
+  const createGroupFor = (ruleId: string) => {
+    const gid = addGroup();
+    setGroupOf(ruleId, gid);
+  };
+
   const setAllOpen = (open: boolean) =>
     setOpenIds(open ? new Set(config.rules.map((r) => r.id)) : new Set());
 
   const applyPreset = (p: Preset) => {
-    setConfig((c) => ({ ...c, rules: cloneRules(p.rules), excluded: [] }));
+    // 预设不带分组信息，整条替换时旧的分组也一起丢掉，免得留下没人引用的空壳
+    setConfig((c) => ({
+      ...c,
+      rules: cloneRules(p.rules),
+      groups: [],
+      excluded: [],
+    }));
     setOpenIds(new Set());
     notify("ok", `已套用预设「${p.name}」`);
   };
@@ -1035,6 +1100,12 @@ export default function App() {
                     onDeletePreset={deletePreset}
                     onImportChain={importChain}
                     onExportChain={exportChain}
+                    groups={config.groups}
+                    onChangeGroup={changeGroup}
+                    onRemoveGroup={removeGroup}
+                    onAddGroup={addGroup}
+                    onSetGroupOf={setGroupOf}
+                    onCreateGroupFor={createGroupFor}
                   />
                 </div>
               </div>

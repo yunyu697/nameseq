@@ -259,7 +259,39 @@ pub struct Rule {
     pub target: Target,
     #[serde(default)]
     pub filter: Filter,
+    /// 所属分组 id。None = 不分组（最外层，永远生效）
+    #[serde(default)]
+    pub group: Option<String>,
     pub action: Action,
+}
+
+/// 规则分组：把若干条规则打包，能整组停用、整组加条件。
+///
+/// 分组只是「附加在规则上的标签 + 一组开关」，规则链本身仍然是平铺的 Vec：
+/// 顺序就是执行顺序，分组不会打乱它。这样规划器只多两行判断，
+/// 而 `.nsq` 文件也保持向后兼容（老文件没有 groups 字段，全部规则视为不分组）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuleGroup {
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default = "d_true")]
+    pub enabled: bool,
+    /// 组条件：不满足条件的文件，组内所有规则都不生效
+    #[serde(default)]
+    pub filter: Filter,
+}
+
+impl RuleGroup {
+    /// 给用户看的名字：没起名就退回 id，免得报错里出现一串空字符串。
+    pub fn display_name(&self) -> &str {
+        if self.name.trim().is_empty() {
+            &self.id
+        } else {
+            self.name.trim()
+        }
+    }
 }
 
 impl Rule {
@@ -794,6 +826,7 @@ mod tests {
             enabled: true,
             target: Target::Stem,
             filter: Filter::default(),
+            group: None,
             action,
         }
     }
@@ -1026,6 +1059,7 @@ mod tests {
             enabled: true,
             target: Target::Ext,
             filter: Filter::default(),
+            group: None,
             action: Action::SetExt {
                 ext: ".jpg".into(),
             },

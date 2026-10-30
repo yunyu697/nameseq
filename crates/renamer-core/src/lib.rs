@@ -37,7 +37,7 @@ pub use model::{FileEntry, MediaMeta, OpStatus, RenameOp};
 pub use planner::{build_plan, Plan, PlanError, RenameConfig, SortBy};
 pub use rule::{
     Action, CaseMode, ChineseNumberMode, ConflictPolicy, CounterBase, DateSource, Filter, Rule,
-    Target,
+    RuleGroup, Target,
 };
 pub use scanner::{scan, ScanOptions};
 pub use template::{parse as parse_template, RenderCtx, Template, TemplateError};
