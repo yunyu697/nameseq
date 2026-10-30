@@ -78,6 +78,24 @@ pub async fn execute_plan(
     ops: Vec<RenameOp>,
     dry_run: bool,
 ) -> Result<BatchResult, String> {
+    execute_ops(app, ops, dry_run).await
+}
+
+/// 重试上次没成功的条目。
+///
+/// 关键在 `refresh_ops`：失败往往是因为「预览后文件被改过」或「当时被占用」，
+/// 直接拿旧计划重跑会被同样的门槛再拦一次。这里先按当前磁盘状态刷新元数据再执行。
+#[tauri::command]
+pub async fn retry_failed(app: AppHandle, ops: Vec<RenameOp>) -> Result<BatchResult, String> {
+    let refreshed = executor::refresh_ops(&ops);
+    execute_ops(app, refreshed, false).await
+}
+
+async fn execute_ops(
+    app: AppHandle,
+    ops: Vec<RenameOp>,
+    dry_run: bool,
+) -> Result<BatchResult, String> {
     let total = ops.len();
     let executable = ops.iter().filter(|o| o.status == OpStatus::Ok).count();
     let plan = Plan {

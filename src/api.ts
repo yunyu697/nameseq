@@ -33,6 +33,10 @@ export const planRename = (entries: FileEntry[], config: RenameConfig) =>
 export const executePlan = (ops: RenameOp[], dryRun = false) =>
   invoke<BatchResult>("execute_plan", { ops, dryRun });
 
+/** 重试上一次执行里没成功的条目（元数据会在后端按当前磁盘状态刷新） */
+export const retryFailed = (ops: RenameOp[]) =>
+  invoke<BatchResult>("retry_failed", { ops });
+
 export const undoBatch = (batchId: string) =>
   invoke<BatchResult>("undo_batch", { batchId });
 

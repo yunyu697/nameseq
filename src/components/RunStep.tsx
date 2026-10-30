@@ -1,4 +1,11 @@
-import type { BatchInfo, InterruptedBatch, Plan, RenameConfig } from "../types";
+import {
+  FAIL_LABEL,
+  type BatchInfo,
+  type InterruptedBatch,
+  type OpResult,
+  type Plan,
+  type RenameConfig,
+} from "../types";
 import { IconAlert, IconCheck, IconUndo } from "./Icons";
 
 interface Props {
@@ -6,10 +13,15 @@ interface Props {
   config: RenameConfig;
   batches: BatchInfo[];
   interrupted: InterruptedBatch[];
+  /** 上次执行失败的条目（带分类与建议） */
+  failures: OpResult[];
+  canRetry: boolean;
   busy: boolean;
   onChange: (patch: Partial<RenameConfig>) => void;
   onUndo: (batchId: string) => void;
   onRecover: (batchId: string) => void;
+  onRetry: () => void;
+  onDismissFailures: () => void;
 }
 
 function when(ms: number): string {
@@ -26,10 +38,14 @@ export default function RunStep({
   config,
   batches,
   interrupted,
+  failures,
+  canRetry,
   busy,
   onChange,
   onUndo,
   onRecover,
+  onRetry,
+  onDismissFailures,
 }: Props) {
   const tiles = [
     { k: "ok", label: "可执行", v: plan?.executable ?? 0 },
@@ -38,8 +54,77 @@ export default function RunStep({
     { k: "unchanged", label: "无变化", v: plan?.unchanged ?? 0 },
   ];
 
+  // 按原因归类：用户先要知道「到底几类问题」，再去看具体哪个文件
+  const groups = (() => {
+    const m = new Map<string, { label: string; n: number; hint: string }>();
+    for (const f of failures) {
+      const kind = f.kind ?? "other";
+      const cur = m.get(kind) ?? {
+        label: FAIL_LABEL[kind],
+        n: 0,
+        hint: f.hint ?? "",
+      };
+      cur.n += 1;
+      m.set(kind, cur);
+    }
+    return [...m.values()].sort((a, b) => b.n - a.n);
+  })();
+
   return (
     <div className="step-body">
+      {failures.length > 0 && (
+        <section className="card fail">
+          <header className="card-head">
+            <IconAlert />
+            <h3>上次有 {failures.length} 个没成功</h3>
+            <button className="link-btn" onClick={onDismissFailures}>
+              收起
+            </button>
+          </header>
+          <ul className="fail-groups">
+            {groups.map((g) => (
+              <li key={g.label} className="fail-group">
+                <b>{g.label}</b>
+                <span className="fail-n">{g.n}</span>
+                <span className="fail-hint" title={g.hint}>
+                  {g.hint}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <ul className="fail-items">
+            {failures.slice(0, 5).map((f, i) => (
+              <li key={`${f.from}-${i}`} className="fail-item">
+                <span className="fail-name" title={f.to}>
+                  {f.from.split(/[\\/]/).pop()}
+                </span>
+                <span className="fail-why" title={f.error ?? ""}>
+                  {f.error}
+                </span>
+              </li>
+            ))}
+            {failures.length > 5 && (
+              <li className="fail-item more">
+                …还有 {failures.length - 5} 个
+              </li>
+            )}
+          </ul>
+          <div className="fail-foot">
+            <button
+              className="btn tiny primary"
+              onClick={onRetry}
+              disabled={busy || !canRetry}
+            >
+              <IconUndo size={12} />
+              重试这 {failures.length} 个
+            </button>
+            <span className="io-hint">
+              重试会按当前磁盘状态重新校验：被占用的先关掉占用的程序，被改过的直接再试
+            </span>
+          </div>
+        </section>
+      )}
+
       {interrupted.length > 0 && (
         <section className="card crash">
           <header className="card-head">

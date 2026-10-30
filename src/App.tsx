@@ -35,11 +35,14 @@ import {
 import type {
   Action,
   BatchInfo,
+  BatchResult,
   FileEntry,
   InterruptedBatch,
+  OpResult,
   Plan,
   Progress,
   RenameConfig,
+  RenameOp,
   Rule,
 } from "./types";
 import { humanSize } from "./util";
@@ -176,6 +179,9 @@ export default function App() {
   const [toast, setToast] = useState<ToastData | null>(null);
   const [batches, setBatches] = useState<BatchInfo[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  // 上一次执行的失败项：留着给「重试」用（重试直接拿这批发给后端，不依赖重新规划）
+  const [failedOps, setFailedOps] = useState<RenameOp[]>([]);
+  const [lastFailures, setLastFailures] = useState<OpResult[]>([]);
 
   const [openIds, setOpenIds] = useState<Set<string>>(
     () => new Set(DEFAULT_CONFIG.rules.map((r) => r.id)),
@@ -610,13 +616,28 @@ export default function App() {
     setProgress({ done: 0, total: plan.executable * 2, phase: "准备" });
     try {
       const r = await api.executePlan(plan.ops, false);
+      const failedIds = new Set(r.results.filter((x) => !x.ok).map((x) => x.id));
+      setFailedOps(plan.ops.filter((o) => failedIds.has(o.id)));
+      setLastFailures(r.results.filter((x) => !x.ok));
+      // 有失败就把「执行选项」展开并滚过去：失败原因卡片在那儿，
+      // 折叠着的话用户只能看到一个「失败 N 个」的 toast，不知道该干嘛
+      if (r.failed > 0) {
+        setCollapsed((c) => (c.run ? { ...c, run: false } : c));
+        // 等展开动画走完再滚，滚到卡片本身而不是分区顶部——
+        // 分区里卡片在下面，滚到顶部等于没滚
+        window.setTimeout(() => {
+          const pane = paneRefs.current.run;
+          const card = pane?.querySelector(".card.fail") ?? pane;
+          card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 260);
+      }
       const firstErr = r.results.find((x) => !x.ok);
       notify(
         r.failed > 0 ? "warn" : "ok",
         `成功 ${r.succeeded} 个` +
           (r.failed ? `，失败 ${r.failed} 个` : "") +
           (r.skipped ? `，跳过 ${r.skipped} 个` : "") +
-          (firstErr?.error ? `（首个错误：${firstErr.error}）` : ""),
+          (firstErr?.hint ? `（${firstErr.hint}）` : ""),
       );
       await refresh();
       await reloadBatches();
@@ -651,6 +672,36 @@ export default function App() {
   );
 
   const lastBatch = batches[0]?.batch ?? null;
+
+  /** 重试上次没成功的条目。后端会先按当前磁盘状态刷新元数据，再走完整的两阶段流程。 */
+  const retry = useCallback(async () => {
+    if (failedOps.length === 0 || busy) return;
+    setBusy(true);
+    setProgress({ done: 0, total: failedOps.length * 2, phase: "重试" });
+    try {
+      const r = await api.retryFailed(failedOps);
+      const stillFailed = r.results.filter((x) => !x.ok);
+      const ids = new Set(stillFailed.map((x) => x.id));
+      setFailedOps(failedOps.filter((o) => ids.has(o.id)));
+      setLastFailures(stillFailed);
+      notify(
+        r.failed > 0 ? "warn" : "ok",
+        r.failed > 0
+          ? `重试：成功 ${r.succeeded} 个，仍有 ${r.failed} 个没成功`
+          : `重试成功，${r.succeeded} 个都改好了`,
+      );
+      await refresh();
+      await reloadBatches();
+    } catch (e) {
+      notify("err", String(e));
+    } finally {
+      setBusy(false);
+      setProgress(null);
+    }
+  }, [failedOps, busy, notify, refresh, reloadBatches]);
+
+  /** 用户主动关掉失败提示（重试仍然可用，只是不再占版面） */
+  const dismissFailures = useCallback(() => setLastFailures([]), []);
 
   /** 崩溃恢复：把某个没跑完的批次按日志逆序还原 */
   const recover = useCallback(
@@ -804,6 +855,8 @@ export default function App() {
     setEntries([]);
     setRoots([]);
     setPlan(null);
+    setFailedOps([]);
+    setLastFailures([]);
     setConfig((c) => ({ ...c, excluded: [] }));
   };
 
@@ -1027,10 +1080,14 @@ export default function App() {
                     config={config}
                     batches={batches}
                     interrupted={interrupted}
+                    failures={lastFailures}
+                    canRetry={failedOps.length > 0}
                     busy={busy}
                     onChange={patchConfig}
                     onUndo={undo}
                     onRecover={recover}
+                    onRetry={retry}
+                    onDismissFailures={dismissFailures}
                   />
                 </div>
               </div>

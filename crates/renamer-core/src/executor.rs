@@ -14,7 +14,7 @@
 //! 每一小步都「先写日志再动文件」，因此崩溃后可以用 undo 逆推。
 
 use crate::journal::Journal;
-use crate::model::OpStatus;
+use crate::model::{OpStatus, RenameOp};
 use crate::planner::Plan;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,89 @@ pub struct ExecOptions {
     pub dry_run: bool,
 }
 
+/// 失败原因分类。
+///
+/// 为什么要分类：`OS error 32` 对用户毫无意义，但「文件被其它程序占用」他能立刻去关掉那个程序。
+/// 分类还顺带回答了「重试有没有意义」——被占用、被改过可以重试，源文件没了重试多少次都一样。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FailKind {
+    /// 文件被别的进程占着（Windows 的共享冲突 / 锁冲突，Unix 的 EBUSY）
+    Occupied,
+    /// 权限不够：只读属性、ACL、目录不可写
+    Permission,
+    /// 源文件已经不在了
+    Missing,
+    /// 目标名在执行那一刻被别的文件占了
+    Exists,
+    /// 预览之后文件被改过，元数据和计划对不上
+    Drifted,
+    /// 名字或完整路径太长
+    NameTooLong,
+    /// 其它（保留原始错误信息）
+    Other,
+}
+
+impl FailKind {
+    /// 重试有没有意义。Missing / Exists / NameTooLong 得先由用户动手改点什么。
+    pub fn retryable(self) -> bool {
+        matches!(
+            self,
+            FailKind::Occupied | FailKind::Permission | FailKind::Drifted | FailKind::Other
+        )
+    }
+
+    /// 给用户看的、能照着做的一句话
+    pub fn hint(self) -> &'static str {
+        match self {
+            FailKind::Occupied => {
+                "文件正被其它程序占用：关掉正在用它/预览它的程序（播放器、编辑器、同步盘）再重试"
+            }
+            FailKind::Permission => {
+                "没有权限改这个文件：检查它是不是只读，或者当前账户能不能写这个目录"
+            }
+            FailKind::Missing => "源文件已经不在了，可能被移动或删除；刷新文件列表后重新规划",
+            FailKind::Exists => "目标名在执行那一刻被占用了，改用「重名时自动加 (1)(2)」再执行",
+            FailKind::Drifted => "文件在预览之后被改过，重新预览确认结果后再执行",
+            FailKind::NameTooLong => "新名字或完整路径太长，缩短规则输出（比如减少固定前缀）再试",
+            FailKind::Other => "系统没给出更具体的原因，可以直接重试一次",
+        }
+    }
+}
+
+/// 从 io::Error 猜原因。Windows 的错误码比 ErrorKind 更细，
+/// 比如共享冲突被归到 PermissionDenied，但处理方式完全不同——所以要单独看错误码。
+fn classify(e: &std::io::Error) -> FailKind {
+    use std::io::ErrorKind;
+    // ErrorKind 已经能确定的，先按它走
+    match e.kind() {
+        ErrorKind::NotFound => return FailKind::Missing,
+        ErrorKind::AlreadyExists => return FailKind::Exists,
+        _ => {}
+    }
+    match e.raw_os_error() {
+        // Windows：32 = ERROR_SHARING_VIOLATION，33 = ERROR_LOCK_VIOLATION
+        Some(32) | Some(33) => FailKind::Occupied,
+        // Windows：5 = ERROR_ACCESS_DENIED，19 = ERROR_WRITE_PROTECT
+        Some(5) | Some(19) => FailKind::Permission,
+        // Windows：206 = ERROR_FILENAME_EXCED_RANGE
+        Some(206) => FailKind::NameTooLong,
+        // Windows：2/3 = 找不到路径 / 路径不存在
+        Some(2) | Some(3) => FailKind::Missing,
+        // Unix：EBUSY / EACCES / ENAMETOOLONG / ENOTEMPTY
+        Some(16) => FailKind::Occupied,
+        Some(13) | Some(1) => FailKind::Permission,
+        Some(36) | Some(63) => FailKind::NameTooLong,
+        _ => {
+            if e.kind() == ErrorKind::PermissionDenied {
+                FailKind::Permission
+            } else {
+                FailKind::Other
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpResult {
@@ -34,7 +117,41 @@ pub struct OpResult {
     pub from: String,
     pub to: String,
     pub ok: bool,
+    /// 技术性描述（含系统原文），直接给日志或高级用户看
     pub error: Option<String>,
+    /// 失败原因分类，成功时为 None
+    #[serde(default)]
+    pub kind: Option<FailKind>,
+    /// 一句能照着做的建议（由 kind 决定，前端直接展示）
+    #[serde(default)]
+    pub hint: Option<String>,
+    /// 这个失败重试有没有意义（前端据此决定按钮是否可点）
+    #[serde(default)]
+    pub retryable: bool,
+}
+
+impl OpResult {
+    fn ok(id: u64, from: &str, to: &str) -> Self {
+        Self {
+            id,
+            from: from.to_string(),
+            to: to.to_string(),
+            ok: true,
+            error: None,
+            kind: None,
+            hint: None,
+            retryable: false,
+        }
+    }
+
+    fn failed(mut self, kind: FailKind, detail: impl Into<String>) -> Self {
+        self.ok = false;
+        self.kind = Some(kind);
+        self.retryable = kind.retryable();
+        self.hint = Some(kind.hint().to_string());
+        self.error = Some(detail.into());
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,13 +181,7 @@ pub fn execute(
     let mut owners: Vec<usize> = Vec::new();
 
     for op in plan.ops.iter().filter(|o| o.status == OpStatus::Ok) {
-        let base = OpResult {
-            id: op.id,
-            from: op.from.clone(),
-            to: op.to.clone(),
-            ok: true,
-            error: None,
-        };
+        let base = OpResult::ok(op.id, &op.from, &op.to);
 
         // 执行前复核：文件在用户预览的这几分钟里可能已经被外部删掉或改写了
         match std::fs::metadata(&op.from) {
@@ -84,20 +195,16 @@ pub fn execute(
                     .unwrap_or(0);
                 let drifted = op.modified_ms > 0 && (size != op.size || mtime != op.modified_ms);
                 if drifted {
-                    results.push(OpResult {
-                        ok: false,
-                        error: Some("文件在预览期间已被修改，已跳过".into()),
-                        ..base
-                    });
+                    results.push(base.failed(
+                        FailKind::Drifted,
+                        "文件在预览期间被修改，已跳过（重新预览后会按最新状态计算）",
+                    ));
                     continue;
                 }
             }
             Err(e) => {
-                results.push(OpResult {
-                    ok: false,
-                    error: Some(format!("源文件不可访问: {e}")),
-                    ..base
-                });
+                let kind = classify(&e);
+                results.push(base.failed(kind, format!("源文件不可访问：{e}")));
                 continue;
             }
         }
@@ -115,10 +222,9 @@ pub fn execute(
 
     let outcomes = two_phase(&pairs, journal, &batch_id, progress);
     for (pair_idx, outcome) in outcomes.into_iter().enumerate() {
-        if let Err(msg) = outcome {
+        if let Err((kind, msg)) = outcome {
             let slot = owners[pair_idx];
-            results[slot].ok = false;
-            results[slot].error = Some(msg);
+            results[slot] = results[slot].clone().failed(kind, msg);
         }
     }
 
@@ -164,26 +270,24 @@ pub fn undo(
     let mut results = Vec::with_capacity(total);
 
     for (i, (src, dst)) in reversed.iter().enumerate() {
-        let mut error = None;
+        let mut res = OpResult::ok(0, &src.to_string_lossy(), &dst.to_string_lossy());
 
         if !src.exists() {
-            error = Some("源文件已不存在（可能已被外部移动或删除）".to_string());
+            res = res.failed(
+                FailKind::Missing,
+                "源文件已不存在（可能已被外部移动或删除）",
+            );
         } else if dst.exists() {
             // 逆序链正常情况下目标一定是空的，非空说明有外部干扰，宁可不做
-            error = Some("目标位置已有文件，为避免覆盖已跳过".to_string());
+            res = res.failed(FailKind::Exists, "目标位置已有文件，为避免覆盖已跳过");
         } else if let Err(e) = journal.record(&new_batch, src, dst) {
-            error = Some(format!("写撤销日志失败: {e}"));
+            res = res.failed(FailKind::Other, format!("写撤销日志失败：{e}"));
         } else if let Err(e) = std::fs::rename(src, dst) {
-            error = Some(format!("还原失败: {e}"));
+            let kind = classify(&e);
+            res = res.failed(kind, format!("还原失败：{e}"));
         }
 
-        results.push(OpResult {
-            id: 0,
-            from: src.to_string_lossy().to_string(),
-            to: dst.to_string_lossy().to_string(),
-            ok: error.is_none(),
-            error,
-        });
+        results.push(res);
         progress(i + 1, total, "撤销");
     }
 
@@ -207,15 +311,52 @@ pub fn recover(
     Ok(r)
 }
 
+/// 重试前刷新每条 op 的元数据。
+///
+/// 上次因为「预览后被改动」或「被占用」失败的文件，直接拿旧 op 再跑一遍还会被同样的门槛拦住：
+/// 漂移校验比的是旧 size/mtime。这里重新 stat 一遍更新成当前状态，并把状态重置成可执行。
+/// 源文件已经不在的条目保持 0 元数据，执行时会如实报 Missing，而不是误判成「被改动」。
+pub fn refresh_ops(ops: &[RenameOp]) -> Vec<RenameOp> {
+    ops.iter()
+        .map(|o| {
+            let mut n = o.clone();
+            n.status = OpStatus::Ok;
+            n.reason = None;
+            match std::fs::metadata(&o.from) {
+                Ok(m) => {
+                    n.is_dir = m.is_dir();
+                    if n.is_dir {
+                        n.size = 0;
+                        n.modified_ms = 0;
+                    } else {
+                        n.size = m.len();
+                        n.modified_ms = m
+                            .modified()
+                            .ok()
+                            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                            .map(|d| d.as_millis() as i64)
+                            .unwrap_or(0);
+                    }
+                }
+                Err(_) => {
+                    n.size = 0;
+                    n.modified_ms = 0;
+                }
+            }
+            n
+        })
+        .collect()
+}
+
 /// 两阶段改名的本体。返回与 `pairs` 一一对应的结果。
 fn two_phase(
     pairs: &[(PathBuf, PathBuf)],
     journal: &Journal,
     batch_id: &str,
     progress: &mut dyn FnMut(usize, usize, &str),
-) -> Vec<Result<(), String>> {
+) -> Vec<Result<(), (FailKind, String)>> {
     let n = pairs.len();
-    let mut out: Vec<Result<(), String>> = (0..n).map(|_| Ok(())).collect();
+    let mut out: Vec<Result<(), (FailKind, String)>> = (0..n).map(|_| Ok(())).collect();
     if n == 0 {
         return out;
     }
@@ -229,14 +370,17 @@ fn two_phase(
         let temp = temp_path(orig, batch_id, i);
 
         if let Err(e) = journal.record(batch_id, orig, &temp) {
-            out[i] = Err(format!("写撤销日志失败: {e}"));
+            out[i] = Err((FailKind::Other, format!("写撤销日志失败：{e}")));
             done += 1;
             progress(done, total, "暂存");
             continue;
         }
         match std::fs::rename(orig, &temp) {
             Ok(()) => staged.push(i),
-            Err(e) => out[i] = Err(format!("暂存失败: {e}")),
+            Err(e) => {
+                let kind = classify(&e);
+                out[i] = Err((kind, format!("暂存（挪到临时名）失败：{e}")));
+            }
         }
         done += 1;
         progress(done, total, "暂存");
@@ -251,7 +395,7 @@ fn two_phase(
         // Linux/macOS 的 rename 会静默覆盖目标，必须自己拦一道
         if fin.exists() {
             let _ = std::fs::rename(&temp, orig);
-            out[i] = Err("目标文件在执行时已存在，已还原".into());
+            out[i] = Err((FailKind::Exists, "目标文件在执行时已存在，已还原原名".into()));
             done += 1;
             progress(done, total, "写入目标名");
             continue;
@@ -259,7 +403,7 @@ fn two_phase(
 
         if let Err(e) = journal.record(batch_id, &temp, fin) {
             let _ = std::fs::rename(&temp, orig);
-            out[i] = Err(format!("写撤销日志失败: {e}"));
+            out[i] = Err((FailKind::Other, format!("写撤销日志失败：{e}")));
             done += 1;
             progress(done, total, "写入目标名");
             continue;
@@ -269,7 +413,8 @@ fn two_phase(
             Err(e) => {
                 // 尽力把文件还原回原名，别让它卡在临时名上
                 let _ = std::fs::rename(&temp, orig);
-                out[i] = Err(format!("改名失败: {e}"));
+                let kind = classify(&e);
+                out[i] = Err((kind, format!("改名失败：{e}")));
             }
         }
         done += 1;
@@ -600,6 +745,78 @@ mod tests {
             error: None,
             media: None,
         }
+    }
+
+    #[test]
+    fn classifies_common_io_errors() {
+        // Windows：32 共享冲突、5 拒绝访问、206 名字过长
+        assert_eq!(
+            classify(&std::io::Error::from_raw_os_error(32)),
+            FailKind::Occupied
+        );
+        assert_eq!(
+            classify(&std::io::Error::from_raw_os_error(5)),
+            FailKind::Permission
+        );
+        assert_eq!(
+            classify(&std::io::Error::from_raw_os_error(206)),
+            FailKind::NameTooLong
+        );
+        assert_eq!(
+            classify(&std::io::Error::from_raw_os_error(2)),
+            FailKind::Missing
+        );
+        // 重试语义：占用/权限/漂移值得重试，源文件没了重试也没用
+        assert!(FailKind::Occupied.retryable());
+        assert!(FailKind::Drifted.retryable());
+        assert!(!FailKind::Missing.retryable());
+        assert!(!FailKind::Exists.retryable());
+    }
+
+    #[test]
+    fn drift_failure_can_be_retried_with_refreshed_metadata() {
+        let t = Tmp::new("retry");
+        t.file("a.txt", "A");
+        let j = journal_at(&t.0);
+        let plan = plan_from_pairs(&t.0, &[("a.txt", "b.txt")]);
+
+        // 预览之后文件被外面的程序改大了 → 执行时按漂移拦下
+        fs::write(t.0.join("a.txt"), "AAA").unwrap();
+        let r = execute(&plan, &j, &ExecOptions::default(), &mut noop);
+        assert_eq!(r.failed, 1);
+        assert_eq!(r.results[0].kind, Some(FailKind::Drifted));
+        assert!(r.results[0].retryable);
+        assert!(t.0.join("a.txt").exists(), "被拦下的文件不该被动");
+
+        // 刷新元数据后重试，这次能改
+        let retry = refresh_ops(&plan.ops);
+        let r2 = execute(
+            &Plan {
+                ops: retry,
+                ..plan.clone()
+            },
+            &j,
+            &ExecOptions::default(),
+            &mut noop,
+        );
+        assert_eq!(r2.succeeded, 1, "{:?}", r2.results);
+        assert_eq!(fs::read_to_string(t.0.join("b.txt")).unwrap(), "AAA");
+    }
+
+    #[test]
+    fn missing_source_is_not_retryable() {
+        let t = Tmp::new("noretry");
+        t.file("a.txt", "A");
+        let j = journal_at(&t.0);
+        let plan = plan_from_pairs(&t.0, &[("a.txt", "b.txt")]);
+        fs::remove_file(t.0.join("a.txt")).unwrap();
+
+        let r = execute(&plan, &j, &ExecOptions::default(), &mut noop);
+        assert_eq!(r.results[0].kind, Some(FailKind::Missing));
+        assert!(
+            !r.results[0].retryable,
+            "源文件没了，重试没有意义，不该给用户「重试」的希望"
+        );
     }
 
     #[test]

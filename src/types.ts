@@ -144,12 +144,36 @@ export interface ChainFile {
   config: RenameConfig;
 }
 
+/** 失败原因分类。数值语义由 Rust 侧决定，这里只用来做文案与图标分组 */
+export type FailKind =
+  | "occupied"
+  | "permission"
+  | "missing"
+  | "exists"
+  | "drifted"
+  | "nameTooLong"
+  | "other";
+
+export const FAIL_LABEL: Record<FailKind, string> = {
+  occupied: "被占用",
+  permission: "没权限",
+  missing: "源已不在",
+  exists: "目标被占",
+  drifted: "文件被改过",
+  nameTooLong: "名字太长",
+  other: "其它",
+};
+
 export interface OpResult {
   id: number;
   from: string;
   to: string;
   ok: boolean;
   error: string | null;
+  /** 失败分类与建议，成功时为 null */
+  kind?: FailKind | null;
+  hint?: string | null;
+  retryable?: boolean;
 }
 
 export interface BatchResult {

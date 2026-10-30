@@ -29,7 +29,9 @@ pub mod template;
 pub mod validate;
 
 pub use chain::{ChainFile, CHAIN_EXT, CHAIN_VERSION};
-pub use executor::{execute, recover, undo, BatchResult, ExecOptions, OpResult};
+pub use executor::{
+    execute, recover, refresh_ops, undo, BatchResult, ExecOptions, FailKind, OpResult,
+};
 pub use journal::{BatchInfo, InterruptedBatch, Journal, Step};
 pub use model::{FileEntry, MediaMeta, OpStatus, RenameOp};
 pub use planner::{build_plan, Plan, PlanError, RenameConfig, SortBy};

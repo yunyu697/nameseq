@@ -11,6 +11,7 @@ pub fn run() {
             commands::scan_paths,
             commands::plan_rename,
             commands::execute_plan,
+            commands::retry_failed,
             commands::undo_batch,
             commands::list_batches,
             commands::interrupted_batches,

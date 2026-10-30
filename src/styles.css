@@ -1645,6 +1645,99 @@ body.col-resizing * {
   font-size: 10.5px;
 }
 
+/* 执行失败：按原因归类 + 重试 */
+.card.fail {
+  border-color: var(--danger);
+}
+.card.fail .card-head h3 {
+  color: var(--danger);
+}
+.card.fail .card-head svg {
+  color: var(--danger);
+  flex: none;
+}
+.fail-groups {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fail-group {
+  display: grid;
+  grid-template-columns: auto 26px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  font-size: 11.5px;
+}
+.fail-group b {
+  color: var(--danger);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.fail-n {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.fail-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+}
+.fail-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.fail-item {
+  display: grid;
+  grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-2);
+  padding: 2px 4px;
+  border-radius: var(--r-1);
+}
+.fail-item:hover {
+  background: var(--panel-2);
+}
+.fail-name {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fail-why {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+}
+.fail-item.more {
+  display: block;
+  color: var(--text-3);
+}
+.fail-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.fail-foot .btn {
+  flex: none;
+  white-space: nowrap;
+}
+.fail-foot .io-hint {
+  text-align: left;
+}
+
 /* 崩溃残留提示：这一批可能没跑完 */
 .batch-tag {
   color: var(--warn);

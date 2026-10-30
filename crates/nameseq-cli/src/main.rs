@@ -240,6 +240,13 @@ fn report(r: &BatchResult) {
         if let Some(e) = &bad.error {
             println!("  ✗ {}：{e}", bad.from);
         }
+        // 分类建议单独一行，脚本里看日志时最容易忽略的就是「该关掉哪个程序」
+        if let Some(h) = &bad.hint {
+            println!("      {h}");
+        }
+    }
+    if r.results.iter().any(|x| !x.ok && x.retryable) {
+        println!("提示：被占用 / 被改过的条目，处理好之后重跑同一条命令即可（会按当前状态重新校验）");
     }
 }
 
