@@ -491,8 +491,8 @@ npm run tauri build
 | 文件 | 大小 | 用途 |
 |---|---|---|
 | `nameseq.exe` | ~6.6 MB | 免安装单文件，双击即用 |
-| `bundle/msi/名序_0.6.0_x64_zh-CN.msi` | ~3.3 MB | 企业分发 / 组策略部署 |
-| `bundle/nsis/名序_0.6.0_x64-setup.exe` | ~2.5 MB | 普通用户安装包（推荐） |
+| `bundle/msi/名序_0.7.0_x64_zh-CN.msi` | ~3.3 MB | 企业分发 / 组策略部署 |
+| `bundle/nsis/名序_0.7.0_x64-setup.exe` | ~2.5 MB | 普通用户安装包（推荐） |
 | `bundle/nsis/…setup.exe.sig` | 436 B | 更新包签名，配合 `latest.json` 校验 |
 
 另外 `cd crates/nameseq-cli && cargo build --release` 会产出 `nsq.exe`（3.4 MB，含拼音表），
