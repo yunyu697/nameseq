@@ -401,6 +401,12 @@ JSONL 里，靠字段区分）。有步骤、没有完成标记、且临时名�
 注意「同批内互相占用」不算冲突——比如 1.txt→2.txt 而 2.txt→3.txt，
 两阶段改名天然能处理，不会丢数据。
 
+## 大批量先问一句
+
+改动超过 **200 项**时，「执行改名」会先弹一个确认框，写清数量并提醒先看预览。
+阈值取 200 的理由很实际：一屏预览看得到十几行，再多就不可能逐条核对了，
+这时候「确认」才不是走过场。撤销能整批回滚，但用户按下按钮那一下往往已经慌了。
+
 ## 已处理的跨平台坑
 
 - **Unicode 归一化**：macOS 返回 NFD，Windows 返回 NFC，`é` 一个字符两个码点。所有文件名比较前统一转 NFC。
@@ -433,6 +439,24 @@ cd crates/nameseq-cli && cargo test     # 命令行：8 个（含真跑一遍改
 引擎当前 107 个测试：94 个单元测试 + 10 个端到端集成测试（真实文件系统上跑扫描→规划→执行→撤销
 →崩溃恢复）+ 3 个预设语法验证测试。命令行另有 4 个参数解析单测 + 4 个端到端（临时目录里真改名、
 真撤销、坏规则链的退出码）。
+
+CI（`.github/workflows/ci.yml`）在 Windows 上跑两个 crate 的 `cargo test`，
+在 Ubuntu 上跑 `tsc --noEmit` + `vite build`——推送和 PR 都会先过这一关。
+
+## 发布
+
+版本号散在 4 个文件里（`package.json`、`tauri.conf.json`、两个 `Cargo.toml`），手改必漏。
+一条命令搞定：
+
+```bash
+npm run release 0.6.0 -- --build --notes "修了中文排序"
+```
+
+它会：① 同步 4 处版本号（只改版本那一行，不重新格式化 JSON，diff 干净）→
+② 带签名私钥打包 → ③ 把安装包、`.sig` 和 `latest.json` 收进 `dist-release/`。
+上传那三个文件就能被老版本客户端「检查更新」看到。
+
+更新服务器的地址用 `NSQ_UPDATE_BASE` 覆盖，默认按 GitHub Release 的路径拼接。
 
 ## Windows 构建产物
 
@@ -512,8 +536,12 @@ nsq undo                               # 还原最近一批，也可跟批次号
 ```bash
 # 生成密钥（只需一次，已有就跳过）
 npx tauri signer generate -w ./.keys/nameseq.key -p "" --ci
+```
 
-# 打包时带上私钥，才会产出 .sig 和 updater 用的压缩包
+平时发版不要手敲下面这条，直接用 `npm run release <版本号> -- --build`（见上一节「发布」），
+它会自己带上私钥、收产物、生成 `latest.json`。等价的底层命令是：
+
+```bash
 TAURI_SIGNING_PRIVATE_KEY="$PWD/.keys/nameseq.key" \
 TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" npm run tauri build
 ```

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { confirm as confirmDialog, open, save } from "@tauri-apps/plugin-dialog";
 import * as api from "./api";
 import FilesStep from "./components/FilesStep";
 import PreviewTable from "./components/PreviewTable";
@@ -57,6 +57,27 @@ const DEFAULT_CONFIG: RenameConfig = {
 };
 
 let toastSeq = 0;
+
+/** 超过这个数量就二次确认。取 200 是因为一屏预览大约能看十几行，
+    再多就不可能「逐条核对」了，这时候确认框才有意义。 */
+const BIG_BATCH = 200;
+
+/** 大批量的确认框。浏览器里预览界面时没有原生对话框，退化成 window.confirm。 */
+async function askBigBatch(n: number): Promise<boolean> {
+  const msg =
+    `即将改名 ${n} 个文件。\n\n` +
+    "批量改名没法逐条核对，虽然可以用「撤销」整批回滚，建议先看一眼右侧预览里的差异。";
+  try {
+    return await confirmDialog(msg, {
+      title: "确认批量改名",
+      kind: "warning",
+      okLabel: "继续执行",
+      cancelLabel: "再看看",
+    });
+  } catch {
+    return window.confirm(`即将改名 ${n} 个文件，继续？`);
+  }
+}
 
 /** 与 styles.css 里各密度档的 --row-h 保持一致，虚拟列表靠它算高度 */
 const ROW_H: Record<Settings["density"], number> = {
@@ -579,6 +600,12 @@ export default function App() {
 
   const run = useCallback(async () => {
     if (!plan || plan.executable === 0 || busy) return;
+    // 大批量先问一句：这是唯一一个「点错要整批回滚」的入口。
+    // 撤销能救，但用户往往先慌，多这一步成本很低。
+    if (plan.executable > BIG_BATCH) {
+      const go = await askBigBatch(plan.executable);
+      if (!go) return;
+    }
     setBusy(true);
     setProgress({ done: 0, total: plan.executable * 2, phase: "准备" });
     try {
