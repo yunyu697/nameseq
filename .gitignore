@@ -1,0 +1,22 @@
+# 依赖与构建产物
+node_modules
+dist
+dist-release
+target
+crates/*/target
+src-tauri/target
+src-tauri/gen
+
+# 签名私钥：绝对不要进版本库
+.keys/
+
+# 杂项
+*.log
+.DS_Store
+Thumbs.db
+tmp-*.mjs
+
+# 工具临时目录（浏览器测试 profile / 助手工作区数据）
+.cprof/
+.workbuddy-ai/
+.workbuddy/

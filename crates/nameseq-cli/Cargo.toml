@@ -1,0 +1,13 @@
+[package]
+name = "nameseq-cli"
+version = "0.5.0"
+edition = "2021"
+description = "名序的命令行前端：用同一份规则链在终端里批量改名"
+license = "MIT"
+
+[[bin]]
+name = "nsq"
+path = "src/main.rs"
+
+[dependencies]
+renamer-core = { path = "../renamer-core" }

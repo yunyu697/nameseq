@@ -1,0 +1,10 @@
+# 统一换行符，避免 Windows 上提交、Linux 上 CI 校验时产生整文件 diff
+* text=auto eol=lf
+
+# 二进制资源不要被当成文本处理
+*.png binary
+*.ico binary
+*.icns binary
+*.msi binary
+*.exe binary
+*.zip binary

@@ -1,0 +1,31 @@
+[package]
+name = "nameseq"
+version = "0.5.0"
+edition = "2021"
+description = "名序 NameSeq —— 跨平台批量重命名工具"
+authors = ["you"]
+
+[lib]
+name = "nameseq_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+arboard = "3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+renamer-core = { path = "../crates/renamer-core" }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

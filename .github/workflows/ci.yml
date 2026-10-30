@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  engine:
+    # 产物是 Windows 桌面应用，引擎测试就在 Windows 上跑，和用户环境一致
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: 引擎测试（扫描 / 规划 / 执行 / 撤销 / 恢复）
+        working-directory: crates/renamer-core
+        run: cargo test
+      - name: 命令行测试（真跑改名与撤销）
+        working-directory: crates/nameseq-cli
+        run: cargo test
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: 类型检查
+        run: npx tsc --noEmit
+      - name: 生产构建
+        run: npm run build

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-density="normal" data-radius="soft" data-strength="normal">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>名序 NameSeq</title>
+    <script>
+      // 在首帧之前把主题写到 <html> 上。
+      // 否则深色用户会先看到一帧白色再变黑——这种闪烁比没有主题还难受。
+      //
+      // 这里只读通道数值（accentH/neutralH/okH…），不做任何查表，
+      // 色板表只存在于 src/theme.ts 一处，两边不会漂移。
+      // 通道值缺失时直接沿用 CSS :root 里的默认值。
+      (function () {
+        try {
+          var raw = localStorage.getItem("renamesmith.settings.v1");
+          var s = raw ? JSON.parse(raw) : {};
+          var mode = s.mode || "system";
+          var dark =
+            mode === "dark" ||
+            (mode === "system" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var r = document.documentElement;
+          var st = r.style;
+          var num = function (v) {
+            return typeof v === "number" && isFinite(v);
+          };
+          r.dataset.theme = dark ? "dark" : "light";
+          r.dataset.density = s.density || "normal";
+          r.dataset.radius = s.radius || "soft";
+          r.dataset.motion = s.motion === false ? "off" : "on";
+          r.dataset.strength = s.strength || "normal";
+          if (num(s.accentH)) {
+            st.setProperty("--a-h", String(s.accentH));
+            st.setProperty("--a-s-base", (num(s.accentS) ? s.accentS : 74) + "%");
+          }
+          if (num(s.neutralH)) {
+            st.setProperty("--n-h", String(s.neutralH));
+            st.setProperty("--n-s", (num(s.neutralS) ? s.neutralS : 20) + "%");
+          }
+          if (num(s.okH) && num(s.warnH) && num(s.dangerH)) {
+            st.setProperty("--ok-h", String(s.okH));
+            st.setProperty("--ok-s", (num(s.okS) ? s.okS : 66) + "%");
+            st.setProperty("--warn-h", String(s.warnH));
+            st.setProperty("--warn-s", (num(s.warnS) ? s.warnS : 88) + "%");
+            st.setProperty("--danger-h", String(s.dangerH));
+            st.setProperty("--danger-s", (num(s.dangerS) ? s.dangerS : 64) + "%");
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

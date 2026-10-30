@@ -1,0 +1,17 @@
+[package]
+name = "renamer-core"
+version = "0.1.0"
+edition = "2021"
+description = "批量重命名引擎：模板解析、改名规划、两阶段执行与撤销日志"
+license = "MIT"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+unicode-normalization = "0.1"
+jwalk = "0.8"
+thiserror = "2"
+regex = "1"
+kamadak-exif = "0.5"
+pinyin = "0.11.0"
