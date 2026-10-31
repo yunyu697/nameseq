@@ -17,6 +17,7 @@ import Toast, { type ToastData } from "./components/Toast";
 import TopBar from "./components/TopBar";
 import {
   IconChevron,
+  IconDownload,
   IconFiles,
   IconPlay,
   IconRules,
@@ -31,6 +32,12 @@ import {
 } from "./presets";
 import { emptyFilter, newRule } from "./rules";
 import { applyRenamed, remapPaths } from "./renameApply";
+import {
+  buildCsv,
+  buildMarkdown,
+  formatOf,
+  reportFileName,
+} from "./report";
 import {
   applySettings,
   loadSettings,
@@ -416,6 +423,37 @@ export default function App() {
       notify("err", String(e));
     }
   }, [config, notify]);
+
+  /**
+   * 导出执行前的改名清单（CSV / Markdown）。
+   *
+   * 格式由保存对话框返回的扩展名决定，所以只用一个按钮：用户在对话框里
+   * 选「CSV 表格」或「Markdown 文档」，扩展名跟着变，我们按扩展名分流。
+   * 两份内容同源（同一个 plan.ops），不会出现「表格和文档对不上」。
+   */
+  const exportReport = useCallback(async () => {
+    if (!plan || plan.ops.length === 0) {
+      notify("warn", t("还没有可导出的清单，先添加文件"));
+      return;
+    }
+    const path = await save({
+      title: t("导出改名报告"),
+      defaultPath: reportFileName("csv"),
+      filters: [
+        { name: t("CSV 表格"), extensions: ["csv"] },
+        { name: t("Markdown 文档"), extensions: ["md"] },
+      ],
+    });
+    if (!path) return;
+    try {
+      const text =
+        formatOf(path) === "md" ? buildMarkdown(plan.ops) : buildCsv(plan.ops);
+      await api.writeTextFile(path, text);
+      notify("ok", t("已导出 {n} 条到 {path}", { n: plan.ops.length, path }));
+    } catch (e) {
+      notify("err", String(e));
+    }
+  }, [plan, notify]);
 
   const addPaths = useCallback(
     async (paths: string[]) => {
@@ -1311,6 +1349,15 @@ export default function App() {
             <span className="preview-hint">
               {t("整行可拖动排序 · Ctrl/Shift 点选多行 · 勾掉选框可排除")}
             </span>
+            <button
+              className="link-btn report-btn"
+              onClick={exportReport}
+              disabled={!plan || plan.ops.length === 0 || busy}
+              title={t("把这份清单导成 CSV 或 Markdown，用于交付与审计")}
+            >
+              <IconDownload size={13} />
+              {t("导出报告")}
+            </button>
           </header>
           <FileFilterBar
             entries={entries}

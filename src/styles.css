@@ -766,6 +766,15 @@ body.col-resizing * {
   margin-left: auto;
   font-size: 11px;
   color: var(--text-3);
+  /* 和工具栏同规：描述性文字先让位。预览列能被压到 260px，
+     这行提示不许把「导出报告」按钮挤变形（UI 铁律第 2 条） */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.report-btn {
+  margin-left: 2px;
 }
 .planning {
   font-size: 11px;

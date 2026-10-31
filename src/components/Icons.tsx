@@ -177,6 +177,13 @@ export const IconSave = ({ size = 15, className }: P) => (
   </svg>
 );
 
+export const IconDownload = ({ size = 15, className }: P) => (
+  <svg {...base(size)} className={className}>
+    <path d="M12 3v11m0 0 4-4m-4 4-4-4" />
+    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+  </svg>
+);
+
 export const IconPalette = ({ size = 16, className }: P) => (
   <svg {...base(size)} className={className}>
     <path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.7 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.4-.6-.4-1 0-.8.6-1.4 1.4-1.4h1.3A4.6 4.6 0 0 0 20 11.2C20 6.7 16.4 3 12 3Z" />

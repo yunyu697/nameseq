@@ -361,6 +361,11 @@ export function buildMockScript(opts = {}) {
         return Promise.resolve(["C:\\\\mock\\\\photos\\\\IMG_001.jpg"]);
       }
       if (cmd === "plugin:dialog|save") {
+        // 保存对话框：用例可以设 __MOCK_SAVE_AS__ 决定回哪个扩展名（csv / md），
+        // 默认还是规则链，保持既有用例不变
+        const as = window.__MOCK_SAVE_AS__ || "nsq";
+        if (as === "csv") return Promise.resolve("C:\\\\mock\\\\改名报告.csv");
+        if (as === "md") return Promise.resolve("C:\\\\mock\\\\改名报告.md");
         return Promise.resolve("C:\\\\mock\\\\导出.nsq");
       }
       if (cmd === "plugin:dialog|confirm") return Promise.resolve("确定");

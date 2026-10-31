@@ -54,7 +54,7 @@ const SCAN = `(() => {
 
 /** 关键行是否横向溢出容器 */
 const ROW_OVERFLOW = `(() => {
-  const sel = ".rules-toolbar, .chain-head, .card-head, .add-row, .pane-head, .ff-row";
+  const sel = ".rules-toolbar, .chain-head, .card-head, .add-row, .pane-head, .ff-row, .preview-head";
   const bad = [];
   for (const el of document.querySelectorAll(sel)) {
     if (el.offsetParent === null) continue;

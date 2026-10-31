@@ -377,6 +377,20 @@ const zhTW: Record<string, string> = {
   "恢复这个文件": "恢復這個檔案",
   "排除 {n} 个文件": "排除 {n} 個檔案",
   "排除这个文件": "排除這個檔案",
+  "还没有可导出的清单，先添加文件": "還沒有可匯出的清單，先加入檔案",
+  "导出改名报告": "匯出改名報告",
+  "CSV 表格": "CSV 表格",
+  "Markdown 文档": "Markdown 文件",
+  "已导出 {n} 条到 {path}": "已匯出 {n} 筆到 {path}",
+  "把这份清单导成 CSV 或 Markdown，用于交付与审计": "把這份清單匯出成 CSV 或 Markdown，用於交付與稽核",
+  "导出报告": "匯出報告",
+  "状态": "狀態",
+  "所在目录": "所在資料夾",
+  "说明": "說明",
+  "名序 · 改名报告": "名序 · 改名報告",
+  "生成时间": "產生時間",
+  "条目": "項目",
+  "名序报告": "名序報告",
 };
 
 /** 繁体表：先按简体 key 逐字映射，缺的回落简体（不会露键） */
@@ -700,6 +714,21 @@ const en: Record<string, string> = {
   "恢复这个文件": "Restore this file",
   "排除 {n} 个文件": "Exclude {n} files",
   "排除这个文件": "Exclude this file",
+  "还没有可导出的清单，先添加文件": "Nothing to export yet — add some files first",
+  "导出改名报告": "Export rename report",
+  "CSV 表格": "CSV spreadsheet",
+  "Markdown 文档": "Markdown document",
+  "已导出 {n} 条到 {path}": "Exported {n} rows to {path}",
+  "把这份清单导成 CSV 或 Markdown，用于交付与审计":
+    "Export this list as CSV or Markdown, for handover and audit",
+  "导出报告": "Export report",
+  "状态": "Status",
+  "所在目录": "Folder",
+  "说明": "Note",
+  "名序 · 改名报告": "NameSeq · Rename report",
+  "生成时间": "Generated",
+  "条目": "Entries",
+  "名序报告": "NameSeq report",
 };
 
 const ja: Record<string, string> = {
@@ -1014,6 +1043,21 @@ const ja: Record<string, string> = {
   "恢复这个文件": "このファイルを復元",
   "排除 {n} 个文件": "{n} 個のファイルを除外",
   "排除这个文件": "このファイルを除外",
+  "还没有可导出的清单，先添加文件": "書き出せるリストがありません。先にファイルを追加してください",
+  "导出改名报告": "リネームレポートを書き出す",
+  "CSV 表格": "CSV 表",
+  "Markdown 文档": "Markdown ドキュメント",
+  "已导出 {n} 条到 {path}": "{n} 件を {path} に書き出しました",
+  "把这份清单导成 CSV 或 Markdown，用于交付与审计":
+    "このリストを CSV または Markdown で書き出します（受け渡し・監査用）",
+  "导出报告": "レポートを書き出す",
+  "状态": "状態",
+  "所在目录": "フォルダー",
+  "说明": "備考",
+  "名序 · 改名报告": "名序 · リネームレポート",
+  "生成时间": "作成日時",
+  "条目": "件数",
+  "名序报告": "名序レポート",
 };
 
 const es: Record<string, string> = {
@@ -1327,6 +1371,21 @@ const es: Record<string, string> = {
   "恢复这个文件": "Restaurar este archivo",
   "排除 {n} 个文件": "Excluir {n} archivos",
   "排除这个文件": "Excluir este archivo",
+  "还没有可导出的清单，先添加文件": "Aún no hay nada que exportar: añade archivos primero",
+  "导出改名报告": "Exportar informe de renombrado",
+  "CSV 表格": "Hoja CSV",
+  "Markdown 文档": "Documento Markdown",
+  "已导出 {n} 条到 {path}": "Se exportaron {n} filas a {path}",
+  "把这份清单导成 CSV 或 Markdown，用于交付与审计":
+    "Exporta esta lista como CSV o Markdown para entrega y auditoría",
+  "导出报告": "Exportar informe",
+  "状态": "Estado",
+  "所在目录": "Carpeta",
+  "说明": "Nota",
+  "名序 · 改名报告": "NameSeq · Informe de renombrado",
+  "生成时间": "Generado",
+  "条目": "Entradas",
+  "名序报告": "Informe de NameSeq",
 };
 
 const TABLE: Partial<Record<Lang, Record<string, string>>> = {
