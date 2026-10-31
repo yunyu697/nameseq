@@ -585,7 +585,7 @@ TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" npm run tauri build
 ```
 
 公钥写在 `tauri.conf.json` 的 `plugins.updater.pubkey` 里，`endpoints` 默认指向
-`https://github.com/nameseq/nameseq/releases/latest/download/latest.json`——换成自己的地址即可。
+`https://github.com/yunyu697/nameseq/releases/latest/download/latest.json`——换成自己的地址即可。
 `latest.json` 的格式就是官方那套（版本、平台、url、signature），把 `bundle/` 里的
 安装包与同名 `.sig` 一起传上去，url 指向安装包、signature 填 `.sig` 的内容。
 

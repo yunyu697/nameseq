@@ -29,7 +29,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/nameseq/nameseq/releases/latest/download/latest.json"
+        "https://github.com/yunyu697/nameseq/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJCRDUzNzkwQ0JGMEM2MjYKUldRbXh2RExrRGZWSzR6ZG9LQ0JYSTZENmhSRnJUMzVaYUJBY2tKeHhtRGk5UVQwamoyVmg4VnUK",
       "windows": {

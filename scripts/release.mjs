@@ -122,7 +122,7 @@ for (const src of [setup, sigFile, join(msiDir, `名序_${version}_x64_zh-CN.msi
 
 const base =
   process.env.NSQ_UPDATE_BASE?.replace(/\/$/, "") ??
-  `https://github.com/nameseq/nameseq/releases/download/v${version}`;
+  `https://github.com/yunyu697/nameseq/releases/download/v${version}`;
 
 const latest = {
   version,

@@ -1,0 +1,78 @@
+name: Release
+
+# 打 tag（形如 v0.9.0）推送到仓库即自动构建 Windows 安装包、签名、建 GitHub Release 并生成最新版清单。
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+# 建 Release / 上传产物需要写权限
+permissions:
+  contents: write
+
+# 避免同一个 tag 重复触发时互相打架
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      # 缓存 crates 编译产物，避免每次全量重编
+      - name: Rust 缓存
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/renamer-core
+            crates/nameseq-cli
+            src-tauri
+
+      - name: 安装依赖
+        run: npm ci
+
+      # 取出纯版本号（去掉 tag 前的 v），同步进四个版本文件；
+      # 仓库里若已和 tag 一致则是 no-op，否则自动对齐，保证产物命名与 tag 一致。
+      - name: 计算版本号
+        id: ver
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 对齐版本号到 tag
+        run: npm run release ${{ steps.ver.outputs.version }}
+
+      # 发布前门禁：引擎与命令行单测不过就不构建
+      - name: 引擎测试
+        working-directory: crates/renamer-core
+        run: cargo test
+      - name: 命令行测试
+        working-directory: crates/nameseq-cli
+        run: cargo test
+
+      # 构建 + 自动更新签名 + 建 Release + 上传 latest.json。
+      # TAURI_SIGNING_KEY 是仓库 secret，内容 = 本地 .keys/nameseq.key 的全部文本。
+      - name: 构建并发布
+        uses: tauri-apps/tauri-action@v0
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "名序 ${{ github.ref_name }}"
+          releaseBody: "自动构建的 Windows 安装包（含自动更新签名）。详细更新说明见 latest.json。"
+          releaseDraft: false
+          prerelease: false
+          includeUpdater: true
+          updaterJsonPreferNsis: true
