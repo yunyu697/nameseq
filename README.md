@@ -600,6 +600,16 @@ npm run release 0.6.0 -- --build --notes "修了中文排序"
 git tag v0.9.1 && git push origin v0.9.1
 ```
 
+**发版说明的写在哪**：`latest.json` 的 `notes`（客户端「检查更新」里显示的更新内容）
+取自注解标签的消息，没有注解标签就取版本提交的正文。所以要么
+
+```bash
+git tag -a v0.9.3 -m "改完名不再重扫目录；新增导出报告" && git push origin v0.9.3
+```
+
+要么让版本提交的正文就是发版说明（本仓库一直这么写）。两样都没有的话，
+更新提示会是空的——`v0.9.2` 就踩过这个坑，之后已修。
+
 | 平台 | runner | 产出 |
 |---|---|---|
 | Windows | `windows-latest` | `nameseq_X.Y.Z_x64-setup.exe`（NSIS）、`nameseq_X.Y.Z_x64_zh-CN.msi`、`nameseq_X.Y.Z_x64_portable.zip`、以及对应 `.sig` |

@@ -79,6 +79,28 @@ jobs:
       - name: 对齐版本号到 tag
         run: npm run release ${{ steps.ver.outputs.version }}
 
+      # 发版说明进 latest.json 的 notes，客户端「检查更新」才看得到更新内容。
+      # 注解标签（git tag -a -m "…"）用它的消息；轻量标签用版本提交的正文
+      # ——注意 `%(contents)` 对轻量标签会回落成提交消息（开头是「发版 x.y.z：
+      # 版本号同步」这类工程噪音），所以先用 cat-file 判断标签类型。
+      - name: 取发版说明
+        id: notes
+        shell: bash
+        run: |
+          if [ "$(git cat-file -t "$GITHUB_REF_NAME")" = "tag" ]; then
+            msg=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
+          else
+            msg=$(git log -1 --format='%b' "$GITHUB_REF_NAME")
+          fi
+          # 压成单行：notes 要进 JSON，换行只会让更新提示更难读
+          msg=$(printf '%s' "$msg" | tr '\n' ' ' | tr -s ' ' | sed 's/^ *//;s/ *$//')
+          {
+            echo 'notes<<__NOTES_EOF__'
+            echo "$msg"
+            echo '__NOTES_EOF__'
+          } >> "$GITHUB_OUTPUT"
+          echo "发版说明：${msg:0:80}"
+
       # 发布前门禁：引擎与命令行单测不过就不构建（挑 Linux 跑，Rust 引擎与平台无关）
       - name: 引擎测试
         if: matrix.platform == 'linux'
@@ -99,7 +121,10 @@ jobs:
 
       - name: 构建 Windows 安装包 + 更新清单
         if: matrix.platform == 'windows'
-        run: npm run release ${{ steps.ver.outputs.version }} -- --build
+        shell: bash
+        env:
+          NSQ_NOTES: ${{ steps.notes.outputs.notes }}
+        run: npm run release ${{ steps.ver.outputs.version }} -- --build --notes "$NSQ_NOTES"
 
       - name: 打包 Windows 便携 zip
         if: matrix.platform == 'windows'
