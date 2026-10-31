@@ -546,7 +546,7 @@ gettext 风格：**简体中文原文就是 key**，`t("已添加 {n} 个文件"
 `src/i18n.ts` 里只有 `zhTW` / `en` / `ja` / `es` 四张表（中文即兜底，不单独建表）。
 
 这么写的好处是代码里读到的就是用户看到的话，不用在「文案」和「键名」之间来回查。代价是
-**漏词条不报错**——查不到就静默回落中文，界面上会混出半中半英。所以补了上面那三个测试守着。
+**漏词条不报错**——查不到就静默回落中文，界面上会混出半中半英。所以补了三个测试守着（见下）。
 
 两条容易踩的约束：模块级的常量表（`ACTION_LABELS` 这类）**不能**在定义时调 `t()`，因为语言要
 运行时才确定，只能在渲染点包一层（`t(ACTION_LABELS[k])`）；数据表文件（`rules.ts` / `theme.ts` /
@@ -672,8 +672,8 @@ npm run tauri build
 | 文件 | 大小 | 用途 |
 |---|---|---|
 | `nameseq.exe` | ~6.6 MB | 免安装单文件，双击即用 |
-| `bundle/msi/nameseq_0.9.1_x64_zh-CN.msi` | ~3.3 MB | 企业分发 / 组策略部署 |
-| `bundle/nsis/nameseq_0.9.1_x64-setup.exe` | ~2.5 MB | 普通用户安装包（推荐） |
+| `bundle/msi/nameseq_0.9.3_x64_zh-CN.msi` | ~3.4 MB | 企业分发 / 组策略部署 |
+| `bundle/nsis/nameseq_0.9.3_x64-setup.exe` | ~2.5 MB | 普通用户安装包（推荐） |
 | `bundle/nsis/…setup.exe.sig` | 436 B | 更新包签名，配合 `latest.json` 校验 |
 
 另外 `cd crates/nameseq-cli && cargo build --release` 会产出 `nsq.exe`（3.4 MB，含拼音表），
