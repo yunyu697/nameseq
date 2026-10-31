@@ -27,9 +27,18 @@ const SCAN = `(() => {
     ".drawer",          // 关闭时整块在视口右侧外，坐标判定没意义
     ".toolbar-hint", ".chain-hint", ".chain-count", ".card-count",
     ".add-hint", ".pane-titles i", ".empty-note", ".root-path",
+    ".group-bar-hint", ".preview-hint",
+  ].join(",");
+  // 头部标题也要扫：它们不是控件，但同样「不许压缩换行」——
+  // 「分组」两个字被挤成竖排两行（高 15→30）就是这么漏掉的
+  const TITLES = [
+    ".group-bar-head > b", ".chain-head h3", ".card-head h3",
+    ".preview-head h3", ".pane-titles b",
   ].join(",");
   const agg = new Map();
-  for (const el of document.querySelectorAll("button, .chk, .seg-item, .tab, select")) {
+  for (const el of document.querySelectorAll(
+    "button, .chk, .seg-item, .tab, select, " + TITLES,
+  )) {
     if (el.closest(SKIP)) continue;
     if (el.offsetParent === null) continue;   // 折叠区里的内容
     const r = el.getBoundingClientRect();
@@ -54,7 +63,7 @@ const SCAN = `(() => {
 
 /** 关键行是否横向溢出容器 */
 const ROW_OVERFLOW = `(() => {
-  const sel = ".rules-toolbar, .chain-head, .card-head, .add-row, .pane-head, .ff-row, .preview-head";
+  const sel = ".rules-toolbar, .chain-head, .card-head, .add-row, .pane-head, .ff-row, .preview-head, .group-bar-head, .group-chip-main";
   const bad = [];
   for (const el of document.querySelectorAll(sel)) {
     if (el.offsetParent === null) continue;
@@ -94,6 +103,17 @@ before(async () => {
   }
 
   minWs = await page.eval(`window.__MINWS__ || 0`);
+
+  // 建一个分组：分组芯片行（勾选框 + 名字 + 条数 + 条件 + 删除）也要被扫到，
+  // 空列表时它整行不渲染，等于这块布局没有回归覆盖
+  const added = await page.eval(`(() => {
+    const btn = document.querySelector(".group-bar-head .link-btn");
+    if (!btn) return false;
+    btn.click();
+    return true;
+  })()`);
+  assert.ok(added, "找不到「新建分组」按钮");
+  await page.frames(2);
 });
 
 after(async () => {

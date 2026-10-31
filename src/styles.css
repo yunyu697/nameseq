@@ -1662,6 +1662,23 @@ body.col-resizing * {
   font-size: 12px;
   color: var(--text-2);
 }
+/*
+ * 头部标题绝不许被压缩换行。
+ *
+ * 这些行都是 `display: flex`，只有提示文字该让位（它自己带 overflow:hidden）。
+ * 标题一旦没有 flex:none + nowrap，就会和提示文字按比例一起被压缩：
+ * 「分组」两个字会被挤成竖排两行（宽 24→16、高 15→30），图标和提示还居中在
+ * 30px 的行里——看着就是标题错位。窗口越窄越明显，所以当初没被发现。
+ *
+ * 新增这种「标题 + 说明 + 按钮」的行时，标题选择器也要加进来。
+ */
+.group-bar-head > b,
+.chain-head h3,
+.card-head h3,
+.preview-head h3 {
+  flex: none;
+  white-space: nowrap;
+}
 .group-bar-head > svg {
   color: var(--accent);
   flex: none;
