@@ -107,7 +107,7 @@ try {
 const rel = join(ROOT, "src-tauri", "target", "release");
 const nsisDir = join(rel, "bundle", "nsis");
 const msiDir = join(rel, "bundle", "msi");
-const setupName = `名序_${version}_x64-setup.exe`;
+const setupName = `nameseq_${version}_x64-setup.exe`;
 const setup = join(nsisDir, setupName);
 const sigFile = `${setup}.sig`;
 
@@ -116,7 +116,7 @@ if (!existsSync(setup) || !existsSync(sigFile)) {
 }
 
 mkdirSync(OUT_DIR, { recursive: true });
-for (const src of [setup, sigFile, join(msiDir, `名序_${version}_x64_zh-CN.msi`)]) {
+for (const src of [setup, sigFile, join(msiDir, `nameseq_${version}_x64_zh-CN.msi`)]) {
   if (existsSync(src)) copyFileSync(src, join(OUT_DIR, src.split(/[\\/]/).pop()));
 }
 

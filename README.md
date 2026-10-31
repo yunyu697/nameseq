@@ -505,9 +505,9 @@ git tag v0.9.0 && git push origin v0.9.0
 
 | 平台 | runner | 产出 |
 |---|---|---|
-| Windows | `windows-latest` | `名序_X.Y.Z_x64-setup.exe`（NSIS）、`名序_X.Y.Z_x64_zh-CN.msi`、`nameseq_X.Y.Z_x64_portable.zip`、以及对应 `.sig` |
-| macOS | `macos-latest` | `名序_X.Y.Z_aarch64.dmg`、`.app.tar.gz`、`.sig` |
-| Linux | `ubuntu-latest` | `nameseq_X.Y.Z_amd64.deb`、`.rpm`、`.AppImage`、裸二进制 `nameseq-linux-x64`、`.sig`（Linux 包名用 ASCII `nameseq`，因为 deb/rpm 打包器不支持中文包名） |
+| Windows | `windows-latest` | `nameseq_X.Y.Z_x64-setup.exe`（NSIS）、`nameseq_X.Y.Z_x64_zh-CN.msi`、`nameseq_X.Y.Z_x64_portable.zip`、以及对应 `.sig` |
+| macOS | `macos-latest` | `nameseq_X.Y.Z_aarch64.dmg`、`.app.tar.gz`、`.sig` |
+| Linux | `ubuntu-latest` | `nameseq_X.Y.Z_amd64.deb`、`.rpm`、`.AppImage`、裸二进制 `nameseq-linux-x64`、`.sig` |
 
 `latest.json`（自动更新清单）由 Windows 那次构建生成并上传；每个平台的 `.sig` 都带上了，
 客户端校验用。签名私钥走仓库 secret `TAURI_SIGNING_KEY`（= 本地 `.keys/nameseq.key` 全文），
@@ -533,8 +533,8 @@ npm run tauri build
 | 文件 | 大小 | 用途 |
 |---|---|---|
 | `nameseq.exe` | ~6.6 MB | 免安装单文件，双击即用 |
-| `bundle/msi/名序_0.8.0_x64_zh-CN.msi` | ~3.3 MB | 企业分发 / 组策略部署 |
-| `bundle/nsis/名序_0.8.0_x64-setup.exe` | ~2.5 MB | 普通用户安装包（推荐） |
+| `bundle/msi/nameseq_0.8.0_x64_zh-CN.msi` | ~3.3 MB | 企业分发 / 组策略部署 |
+| `bundle/nsis/nameseq_0.8.0_x64-setup.exe` | ~2.5 MB | 普通用户安装包（推荐） |
 | `bundle/nsis/…setup.exe.sig` | 436 B | 更新包签名，配合 `latest.json` 校验 |
 
 另外 `cd crates/nameseq-cli && cargo build --release` 会产出 `nsq.exe`（3.4 MB，含拼音表），

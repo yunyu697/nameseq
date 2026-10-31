@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "名序",
+  "productName": "nameseq",
   "mainBinaryName": "nameseq",
   "version": "0.8.0",
   "identifier": "com.nameseq.app",

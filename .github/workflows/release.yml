@@ -95,7 +95,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p .keys
-          printf '%s' "$TAURI_SIGNING_KEY" > .keys/nameseq.key
+          printf '%s' "$TAURI_SIGNING_PRIVATE_KEY" > .keys/nameseq.key
 
       - name: 构建 Windows 安装包 + 更新清单
         if: matrix.platform == 'windows'
@@ -113,34 +113,32 @@ jobs:
         if: matrix.platform == 'macos'
         run: npm run tauri build
 
-      # Linux 的 deb/rpm/AppImage 打包器要求包名以字母数字开头，不支持中文 productName，
-      # 因此用覆盖配置把 Linux 包名换成 nameseq（窗口标题不受影响，Windows/macOS 仍叫「名序」）
       - name: 构建 Linux 包（deb + rpm + AppImage）
         if: matrix.platform == 'linux'
-        run: npm run tauri build -- --config src-tauri/tauri.linux.conf.json
+        run: npm run tauri build -- --bundles deb,rpm,appimage
 
-      # ---- 收集产物到 dist/，再统一上传 ----
+      # ---- 收集产物到 release-assets/（不能复用 Vite 的 dist/，否则前端文件会混进 Release）----
       - name: 收集 Windows 产物
         if: matrix.platform == 'windows'
         shell: bash
         run: |
-          mkdir -p dist
-          cp dist-release/* dist/ 2>/dev/null || true
+          mkdir -p release-assets
+          cp dist-release/* release-assets/ 2>/dev/null || true
 
       - name: 收集 macOS 产物
         if: matrix.platform == 'macos'
         shell: bash
         run: |
-          mkdir -p dist
-          find src-tauri/target/release/bundle -type f \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.sig" \) -exec cp {} dist/ \;
+          mkdir -p release-assets
+          find src-tauri/target/release/bundle -type f \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.sig" \) -exec cp {} release-assets/ \;
 
       - name: 收集 Linux 产物
         if: matrix.platform == 'linux'
         shell: bash
         run: |
-          mkdir -p dist
-          find src-tauri/target/release/bundle -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" -o -name "*.sig" \) -exec cp {} dist/ \;
-          cp src-tauri/target/release/nameseq dist/nameseq-linux-x64 2>/dev/null || true
+          mkdir -p release-assets
+          find src-tauri/target/release/bundle -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" -o -name "*.sig" \) -exec cp {} release-assets/ \;
+          cp src-tauri/target/release/nameseq release-assets/nameseq-linux-x64 2>/dev/null || true
 
       - name: 上传到 Release
         uses: softprops/action-gh-release@v2
@@ -150,7 +148,7 @@ jobs:
           body: "多平台自动构建：Windows（msi/exe/便携zip）、macOS（dmg）、Linux（deb/rpm/AppImage/二进制）。自动更新签名见各包同名 .sig；更新清单 latest.json 由 Windows 产出。"
           draft: false
           prerelease: false
-          files: dist/*
+          files: release-assets/*
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
