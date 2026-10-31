@@ -1,6 +1,6 @@
 [package]
 name = "nameseq"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2021"
 description = "名序 NameSeq —— 跨平台批量重命名工具"
 authors = ["you"]

@@ -518,7 +518,7 @@ npm run release 0.6.0 -- --build --notes "修了中文排序"
 打一个 `vX.Y.Z` 的 tag 推上去，CI 会在三个平台**并行构建**，并把产物汇总到同一个 GitHub Release：
 
 ```bash
-git tag v0.9.0 && git push origin v0.9.0
+git tag v0.9.1 && git push origin v0.9.1
 ```
 
 | 平台 | runner | 产出 |
@@ -551,8 +551,8 @@ npm run tauri build
 | 文件 | 大小 | 用途 |
 |---|---|---|
 | `nameseq.exe` | ~6.6 MB | 免安装单文件，双击即用 |
-| `bundle/msi/nameseq_0.9.0_x64_zh-CN.msi` | ~3.3 MB | 企业分发 / 组策略部署 |
-| `bundle/nsis/nameseq_0.9.0_x64-setup.exe` | ~2.5 MB | 普通用户安装包（推荐） |
+| `bundle/msi/nameseq_0.9.1_x64_zh-CN.msi` | ~3.3 MB | 企业分发 / 组策略部署 |
+| `bundle/nsis/nameseq_0.9.1_x64-setup.exe` | ~2.5 MB | 普通用户安装包（推荐） |
 | `bundle/nsis/…setup.exe.sig` | 436 B | 更新包签名，配合 `latest.json` 校验 |
 
 另外 `cd crates/nameseq-cli && cargo build --release` 会产出 `nsq.exe`（3.4 MB，含拼音表），
