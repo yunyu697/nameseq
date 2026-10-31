@@ -335,6 +335,11 @@ export async function launch({ width = 1280, height = 820, mock = "" } = {}) {
       `--window-size=${width},${height}`,
       "--no-first-run",
       "--no-default-browser-check",
+      // 界面语言：应用首次启动会跟随 navigator.language 选语言（i18n.ts）。
+      // 不钉死的话，CI runner（en-US）上界面是英文、本机（zh-CN）上是中文，
+      // 任何按中文文案定位元素的用例都会变成「只有 CI 挂」的玄学。
+      "--lang=zh-CN",
+      "--accept-lang=zh-CN",
       "--no-sandbox",
       "--disable-dev-shm-usage",
       "--disable-gpu",
@@ -397,6 +402,22 @@ export async function launch({ width = 1280, height = 820, mock = "" } = {}) {
 
   await page.send("Page.enable");
   await page.send("Runtime.enable");
+  // 语言必须在页面脚本之前钉死：应用首次启动跟随 navigator.language 选语言
+  // （src/i18n.ts 的 resolveLocale）。CI runner 是 en-US、本机是 zh-CN，
+  // 不钉死就会出现「只有 CI 挂」的用例——按中文文案定位元素在英文界面下必然找不到。
+  // Chrome 的 --lang 参数在 Windows 上不一定改到 navigator.language，所以这里直接改属性。
+  await page.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `
+      try {
+        Object.defineProperty(navigator, "language", {
+          get: () => "zh-CN", configurable: true,
+        });
+        Object.defineProperty(navigator, "languages", {
+          get: () => ["zh-CN", "zh"], configurable: true,
+        });
+      } catch {}
+    `,
+  });
   if (mock) {
     await page.send("Page.addScriptToEvaluateOnNewDocument", { source: mock });
   }

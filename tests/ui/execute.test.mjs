@@ -41,9 +41,11 @@ test("执行改名：路径原地更新，排序与排除勾选都不丢", async
   const page = app.page;
 
   /* ---- 1. 套一个一定会改名的预设（{name}-{index:3}） ---- */
+  // 按结构找按钮而不是按文案：「预设」两个字是 t() 出来的，换个界面语言就没了。
+  // 预设按钮是工具栏里唯一带计数角标（.toolbar-count）的那个。
   const opened = await page.eval(`(() => {
     const btns = [...document.querySelectorAll(".rules-toolbar .toolbar-btn")];
-    const preset = btns.find((el) => el.textContent.includes("预设"));
+    const preset = btns.find((el) => el.querySelector(".toolbar-count"));
     if (!preset) return false;
     preset.click();
     return true;
