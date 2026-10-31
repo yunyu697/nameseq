@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { FileEntry } from "../types";
 import { humanSize } from "../util";
+import { t } from "../i18n";
 import {
   IconFolder,
   IconFolderPlus,
@@ -52,7 +53,7 @@ export default function FilesStep({
   const extStats = useMemo(() => {
     const m = new Map<string, { n: number; size: number }>();
     for (const e of entries) {
-      const k = e.isDir ? "文件夹" : (e.ext || "无扩展名").toLowerCase();
+      const k = e.isDir ? t("文件夹") : (e.ext || t("无扩展名")).toLowerCase();
       const cur = m.get(k) ?? { n: 0, size: 0 };
       cur.n += 1;
       cur.size += e.size;
@@ -81,11 +82,11 @@ export default function FilesStep({
       <div className={`add-row ${dragOver ? "over" : ""}`}>
         <button className="btn primary" onClick={onPickFiles} disabled={busy}>
           <IconPlus size={13} />
-          选择文件
+          {t("选择文件")}
         </button>
         <button className="btn" onClick={onPickFolder} disabled={busy}>
           <IconFolder size={13} />
-          选择文件夹
+          {t("选择文件夹")}
         </button>
         <label className="chk">
           <input
@@ -93,29 +94,33 @@ export default function FilesStep({
             checked={recursive}
             onChange={onToggleRecursive}
           />
-          包含子文件夹
+          {t("包含子文件夹")}
         </label>
-        <label className="chk" title="文件夹会作为可改名的一项进入列表">
+        <label className="chk" title={t("文件夹会作为可改名的一项进入列表")}>
           <input type="checkbox" checked={includeDirs} onChange={onToggleDirs} />
-          文件夹也改名
+          {t("文件夹也改名")}
         </label>
         <label
           className="chk"
-          title="读 MP3/FLAC/MP4 标签和视频、图片分辨率，文件多时扫描会慢一点"
+          title={t(
+            "读 MP3/FLAC/MP4 标签和视频、图片分辨率，文件多时扫描会慢一点",
+          )}
         >
           <input type="checkbox" checked={readMedia} onChange={onToggleMedia} />
-          读取媒体标签
+          {t("读取媒体标签")}
         </label>
-        <span className="add-hint">也可把文件直接拖进窗口，重复的自动去重</span>
+        <span className="add-hint">
+          {t("也可把文件直接拖进窗口，重复的自动去重")}
+        </span>
       </div>
 
       {roots.length > 0 && (
         <section className="card">
           <header className="card-head">
-            <h3>已添加的位置</h3>
+            <h3>{t("已添加的位置")}</h3>
             <span className="card-count">{roots.length}</span>
             <button className="link-btn" onClick={onClear} disabled={busy}>
-              全部清空
+              {t("全部清空")}
             </button>
           </header>
           <ul className="root-list">
@@ -132,7 +137,7 @@ export default function FilesStep({
                 </span>
                 <button
                   className="icon-btn sm"
-                  title="把「这个文件夹本身」也加入改名列表"
+                  title={t("把「这个文件夹本身」也加入改名列表")}
                   onClick={() => onAddFolderItself(r)}
                   disabled={busy}
                 >
@@ -140,7 +145,7 @@ export default function FilesStep({
                 </button>
                 <button
                   className="icon-btn sm"
-                  title="移除"
+                  title={t("移除")}
                   onClick={() => onRemoveRoot(r)}
                 >
                   <IconX size={12} />
@@ -154,11 +159,11 @@ export default function FilesStep({
       {entries.length > 0 && (
         <section className="card">
           <header className="card-head">
-            <h3>文件构成</h3>
+            <h3>{t("文件构成")}</h3>
             <span className="card-count">
-              {extStats.kinds} 种类型
-              {dirCount > 0 ? ` · ${dirCount} 个文件夹` : ""} · 共{" "}
-              {humanSize(totalSize)}
+              {extStats.kinds} {t("种类型")}
+              {dirCount > 0 ? ` · ${dirCount} ${t("个文件夹")}` : ""} ·{" "}
+              {t("共")} {humanSize(totalSize)}
             </span>
           </header>
           <ul className="ext-list">
@@ -177,7 +182,9 @@ export default function FilesStep({
       )}
 
       {entries.length === 0 && (
-        <p className="empty-note">还没有添加任何文件，先把要改名的东西拖进来。</p>
+        <p className="empty-note">
+          {t("还没有添加任何文件，先把要改名的东西拖进来。")}
+        </p>
       )}
 
       {entries.length > 0 && (
@@ -187,10 +194,9 @@ export default function FilesStep({
           disabled={busy}
         >
           <IconTrash />
-          清空全部 {entries.length} 个文件
+          {t("清空全部 {n} 个文件", { n: entries.length })}
         </button>
       )}
     </div>
   );
 }
-

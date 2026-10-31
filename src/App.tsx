@@ -3,6 +3,11 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { confirm as confirmDialog, open, save } from "@tauri-apps/plugin-dialog";
 import * as api from "./api";
+import FileFilterBar, {
+  EMPTY_FILE_FILTER,
+  matchFilterIds,
+  type FileFilterState,
+} from "./components/FileFilterBar";
 import FilesStep from "./components/FilesStep";
 import PreviewTable from "./components/PreviewTable";
 import RulesStep from "./components/RulesStep";
@@ -32,6 +37,7 @@ import {
   resolveDark,
   type Settings,
 } from "./theme";
+import { useUpdater } from "./updateManager";
 import type {
   Action,
   BatchInfo,
@@ -47,11 +53,13 @@ import type {
   RuleGroup,
 } from "./types";
 import { humanSize } from "./util";
+import { applyLang, t } from "./i18n";
 
 const DEFAULT_CONFIG: RenameConfig = {
   rules: [newRule("template")],
   keepExt: true,
   sortBy: "original",
+  sortBy2: null,
   descending: false,
   naturalSort: true,
   startIndex: 1,
@@ -97,6 +105,7 @@ type PaneKey = "files" | "rules" | "run";
 
 const PANES_KEY = "renamesmith.panes.v1";
 const SPLIT_KEY = "renamesmith.preview.w.v1";
+const FILTER_KEY = "renamesmith.filefilter.v1";
 
 /** 分区是否收起。默认：文件/规则展开，执行选项收起（低频） */
 const DEFAULT_PANES: Record<PaneKey, boolean> = {
@@ -165,6 +174,21 @@ export default function App() {
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [roots, setRoots] = useState<string[]>([]);
   const [config, setConfig] = useState<RenameConfig>(DEFAULT_CONFIG);
+  // 预览上方的文件筛选（包含/排除 + 扩展名），选择持久化
+  const [fileFilter, setFileFilter] = useState<FileFilterState>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(FILTER_KEY) || "");
+      if (raw && typeof raw === "object" && Array.isArray(raw.exts)) {
+        return {
+          mode: raw.mode === "include" ? "include" : "exclude",
+          exts: raw.exts.filter((x: unknown) => typeof x === "string"),
+        };
+      }
+    } catch {
+      /* 首次使用，走默认 */
+    }
+    return EMPTY_FILE_FILTER;
+  });
   const [recursive, setRecursive] = useState(false);
   // 文件夹也参与改名（扫描时把目录当条目收进来）
   const [includeDirs, setIncludeDirs] = useState(false);
@@ -192,12 +216,31 @@ export default function App() {
   const [presets, setPresets] = useState<Preset[]>(() => loadPresets());
 
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
+  // 语言在每次渲染前应用：t() 是模块级的，子组件渲染时读到当前词条即可。
+  // 幂等调用，语言没变就没有开销。
+  applyLang(settings.language);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // 更新检查放这里而不是设置抽屉里：抽屉关着也要按频率自动查
+  const updater = useUpdater(settings.updateCheck);
 
   const notify = useCallback((kind: ToastData["kind"], text: string) => {
     toastSeq += 1;
     setToast({ id: toastSeq, kind, text });
   }, []);
+
+  // 发现新版本时提示一次（自动检查在后台跑，用户可能根本没开设置抽屉）
+  const prevUpdStatus = useRef<string>("idle");
+  useEffect(() => {
+    const st = updater.phase.status;
+    if (st === "available" && prevUpdStatus.current !== "available") {
+      notify(
+        "ok",
+        `发现新版本 v${updater.phase.version}，到「设置 → 关于与更新」里选择更新方式`,
+      );
+    }
+    prevUpdStatus.current = st;
+  }, [updater.phase.status, updater.phase.version, notify]);
 
   /* ---------------- 主题 ---------------- */
 
@@ -224,7 +267,45 @@ export default function App() {
 
   /* ---------------- 文件 ---------------- */
 
-  const excludedSet = useMemo(() => new Set(config.excluded), [config.excluded]);
+  /* ---------------- 文件筛选（预览上方的包含/排除条） ---------------- */
+
+  // 筛选持久化
+  useEffect(() => {
+    localStorage.setItem(FILTER_KEY, JSON.stringify(fileFilter));
+  }, [fileFilter]);
+
+  /** 筛选命中的 entry id（按扩展名匹配，含文件夹伪 token） */
+  const filterHitIds = useMemo(() => {
+    if (entries.length === 0 || fileFilter.exts.length === 0)
+      return new Set<number>();
+    return matchFilterIds(entries, fileFilter);
+  }, [entries, fileFilter]);
+
+  /** 筛选转成排除集合：排除模式 = 命中的排除；包含模式 = 没命中的全排除 */
+  const filterExcluded = useMemo(() => {
+    if (fileFilter.exts.length === 0) return new Set<number>();
+    if (fileFilter.mode === "exclude") return filterHitIds;
+    const inv = new Set<number>();
+    for (const e of entries) if (!filterHitIds.has(e.id)) inv.add(e.id);
+    return inv;
+  }, [entries, fileFilter, filterHitIds]);
+
+  /** 手动排除 ∪ 筛选排除：真正发给后端、预览里置灰的集合 */
+  const effectiveExcluded = useMemo(
+    () =>
+      filterExcluded.size === 0
+        ? config.excluded
+        : Array.from(new Set([...config.excluded, ...filterExcluded])),
+    [config.excluded, filterExcluded],
+  );
+
+  const excludedSet = useMemo(() => new Set(effectiveExcluded), [effectiveExcluded]);
+
+  /** 发给后端规划用的配置：排除集合换成合并后的版本 */
+  const planConfig = useMemo<RenameConfig>(
+    () => ({ ...config, excluded: effectiveExcluded }),
+    [config, effectiveExcluded],
+  );
 
   /** 载入一个 .nsq 规则链文件（拖进来和菜单打开走同一条路） */
   const loadChain = useCallback(
@@ -249,7 +330,14 @@ export default function App() {
           enabled: g.enabled ?? true,
           filter: { ...emptyFilter(), ...(g.filter ?? {}) },
         }));
-        setConfig({ ...chain.config, rules, groups, excluded: [] });
+        setConfig({
+          ...chain.config,
+          rules,
+          groups,
+          // 0.9 之前存的规则链没有次级排序键
+          sortBy2: withCfg.sortBy2 ?? null,
+          excluded: [],
+        });
         setOpenIds(new Set());
         setCollapsed((c) => ({ ...c, rules: false }));
         notify(
@@ -465,7 +553,7 @@ export default function App() {
     }, 350);
     const timer = window.setTimeout(async () => {
       try {
-        const p = await api.planRename(entries, config);
+        const p = await api.planRename(entries, planConfig);
         if (!alive) return;
         setPlan(p);
         setPlanError(null);
@@ -483,7 +571,7 @@ export default function App() {
       window.clearTimeout(timer);
       window.clearTimeout(slow);
     };
-  }, [entries, config]);
+  }, [entries, planConfig]);
 
   /* ---------------- 分区折叠 ---------------- */
 
@@ -1023,17 +1111,17 @@ export default function App() {
               <button
                 className="pane-head"
                 onClick={() => togglePane("files")}
-                title={collapsed.files ? "展开文件区" : "收起文件区"}
+                title={collapsed.files ? t("展开文件区") : t("收起文件区")}
               >
                 <span className="pane-icon">
                   <IconFiles size={15} />
                 </span>
                 <span className="pane-titles">
-                  <b>文件</b>
-                  <i>选择要改名的文件</i>
+                  <b>{t("文件")}</b>
+                  <i>{t("选择要改名的文件")}</i>
                 </span>
                 <span className="pane-meta">
-                  {entries.length > 0 ? `${entries.length} 个文件` : "未添加"}
+                  {entries.length > 0 ? t("{n} 个文件", { n: entries.length }) : t("未添加")}
                 </span>
                 <IconChevron className="pane-arrow" size={13} />
               </button>
@@ -1070,16 +1158,16 @@ export default function App() {
               <button
                 className="pane-head"
                 onClick={() => togglePane("rules")}
-                title={collapsed.rules ? "展开规则区" : "收起规则区"}
+                title={collapsed.rules ? t("展开规则区") : t("收起规则区")}
               >
                 <span className="pane-icon">
                   <IconRules size={15} />
                 </span>
                 <span className="pane-titles">
-                  <b>规则</b>
-                  <i>从上到下依次执行，每条可单独加条件</i>
+                  <b>{t("规则")}</b>
+                  <i>{t("从上到下依次执行，每条可单独加条件")}</i>
                 </span>
-                <span className="pane-meta">{config.rules.length} 条规则</span>
+                <span className="pane-meta">{t("{n} 条规则", { n: config.rules.length })}</span>
                 <IconChevron className="pane-arrow" size={13} />
               </button>
               <div className="pane-body">
@@ -1121,14 +1209,14 @@ export default function App() {
               <button
                 className="pane-head"
                 onClick={() => togglePane("run")}
-                title={collapsed.run ? "展开执行选项" : "收起执行选项"}
+                title={collapsed.run ? t("展开执行选项") : t("收起执行选项")}
               >
                 <span className="pane-icon">
                   <IconPlay size={15} />
                 </span>
                 <span className="pane-titles">
-                  <b>执行选项</b>
-                  <i>编号顺序、冲突策略与撤销历史</i>
+                  <b>{t("执行选项")}</b>
+                  <i>{t("编号顺序、冲突策略与撤销历史")}</i>
                 </span>
                 <span className="pane-meta">
                   {interrupted.length > 0 ? (
@@ -1137,9 +1225,9 @@ export default function App() {
                       {interrupted.reduce((s, b) => s + b.pending.length, 0)}
                     </b>
                   ) : plan ? (
-                    `可执行 ${plan.executable}`
+                    t("可执行 {n}", { n: plan.executable })
                   ) : (
-                    "等待预览"
+                    t("等待预览")
                   )}
                 </span>
                 <IconChevron className="pane-arrow" size={13} />
@@ -1175,24 +1263,39 @@ export default function App() {
 
         <section className="preview" style={{ width: previewW }}>
           <header className="preview-head">
-            <h3>预览</h3>
-            {planning && <span className="planning">计算中…</span>}
+            <h3>{t("预览")}</h3>
+            {planning && <span className="planning">{t("计算中…")}</span>}
             {planError && <span className="plan-err">{planError}</span>}
             <span className="preview-hint">
-              整行可拖动排序 · Ctrl/Shift 点选多行 · 勾掉选框可排除
+              {t("整行可拖动排序 · Ctrl/Shift 点选多行 · 勾掉选框可排除")}
             </span>
           </header>
+          <FileFilterBar
+            entries={entries}
+            filter={fileFilter}
+            matched={filterHitIds.size}
+            onFilterChange={setFileFilter}
+            sort={config}
+            onSortChange={patchConfig}
+          />
           <PreviewTable
             ops={plan?.ops ?? []}
             excluded={excludedSet}
             rowHeight={ROW_H[settings.density]}
-            onToggle={(id) =>
+            onToggle={(id) => {
+              if (filterExcluded.has(id)) {
+                notify(
+                  "warn",
+                  "这个文件由筛选条控制，要改它请调整预览上方的筛选",
+                );
+                return;
+              }
               patchConfig({
                 excluded: config.excluded.includes(id)
                   ? config.excluded.filter((x) => x !== id)
                   : [...config.excluded, id],
-              })
-            }
+              });
+            }}
             onReorder={reorderToIndex}
             onOpen={openPath}
             onReveal={revealPath}
@@ -1206,22 +1309,22 @@ export default function App() {
         <div className="counts">
           {plan ? (
             <>
-              <span className="c ok">可执行 {plan.executable}</span>
+              <span className="c ok">{t("可执行 {n}", { n: plan.executable })}</span>
               {plan.conflicts > 0 && (
-                <span className="c conflict">冲突 {plan.conflicts}</span>
+                <span className="c conflict">{t("冲突 {n}", { n: plan.conflicts })}</span>
               )}
               {plan.invalid > 0 && (
-                <span className="c invalid">非法 {plan.invalid}</span>
+                <span className="c invalid">{t("非法 {n}", { n: plan.invalid })}</span>
               )}
               {plan.unchanged > 0 && (
-                <span className="c muted">无变化 {plan.unchanged}</span>
+                <span className="c muted">{t("无变化 {n}", { n: plan.unchanged })}</span>
               )}
               {plan.excluded > 0 && (
-                <span className="c muted">已排除 {plan.excluded}</span>
+                <span className="c muted">{t("已排除 {n}", { n: plan.excluded })}</span>
               )}
             </>
           ) : (
-            <span className="c muted">等待添加文件</span>
+            <span className="c muted">{t("等待添加文件")}</span>
           )}
         </div>
 
@@ -1240,7 +1343,7 @@ export default function App() {
             </>
           ) : (
             <span className="phase dim">
-              Ctrl+Enter 执行 · Ctrl+Z 撤销 · Ctrl+1/2/3 定位分区
+              {t('Ctrl+Enter 执行 · Ctrl+Z 撤销 · Ctrl+1/2/3 定位分区')}
             </span>
           )}
         </div>
@@ -1253,7 +1356,7 @@ export default function App() {
             title="撤销最近一次执行"
           >
             <IconUndo size={15} />
-            撤销
+            {t("撤销")}
           </button>
           <button
             className="btn primary run-btn"
@@ -1261,7 +1364,7 @@ export default function App() {
             disabled={busy || !plan || plan.executable === 0}
           >
             <IconPlay size={15} />
-            执行改名
+            {t("执行改名")}
             {plan ? `（${plan.executable}）` : ""}
           </button>
         </div>
@@ -1272,6 +1375,7 @@ export default function App() {
         settings={settings}
         onChange={patchSettings}
         onClose={() => setSettingsOpen(false)}
+        updater={updater}
       />
 
       <Toast toast={toast} onClose={() => setToast(null)} />

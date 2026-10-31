@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 export type OpStatus =
   | "ok"
   | "unchanged"
@@ -6,7 +8,14 @@ export type OpStatus =
   | "missing"
   | "excluded";
 
-export type SortBy = "original" | "name" | "pinyin" | "modified" | "size" | "ext";
+export type SortBy =
+  | "original"
+  | "name"
+  | "pinyin"
+  | "modified"
+  | "size"
+  | "ext"
+  | "folder";
 export type Target = "stem" | "ext";
 export type CaseMode =
   | "upper"
@@ -115,6 +124,8 @@ export interface RenameConfig {
   rules: Rule[];
   keepExt: boolean;
   sortBy: SortBy;
+  /** 次级排序键：主键相同的条目再按它细分；null = 不用 */
+  sortBy2: SortBy | null;
   descending: boolean;
   naturalSort: boolean;
   startIndex: number;
@@ -166,13 +177,27 @@ export type FailKind =
   | "other";
 
 export const FAIL_LABEL: Record<FailKind, string> = {
-  occupied: "被占用",
-  permission: "没权限",
-  missing: "源已不在",
-  exists: "目标被占",
-  drifted: "文件被改过",
-  nameTooLong: "名字太长",
-  other: "其它",
+  get occupied() {
+    return t("被占用");
+  },
+  get permission() {
+    return t("没权限");
+  },
+  get missing() {
+    return t("源已不在");
+  },
+  get exists() {
+    return t("目标被占");
+  },
+  get drifted() {
+    return t("文件被改过");
+  },
+  get nameTooLong() {
+    return t("名字太长");
+  },
+  get other() {
+    return t("其它");
+  },
 };
 
 export interface OpResult {
@@ -219,11 +244,24 @@ export interface Progress {
   phase: string;
 }
 
+/** 状态文案走 t()：调用时按当前语言求值 */
 export const STATUS_LABEL: Record<OpStatus, string> = {
-  ok: "可执行",
-  unchanged: "无需改名",
-  conflict: "冲突",
-  invalid: "非法",
-  missing: "源已变化",
-  excluded: "已排除",
+  get ok() {
+    return t("可执行");
+  },
+  get unchanged() {
+    return t("无变化");
+  },
+  get conflict() {
+    return t("冲突");
+  },
+  get invalid() {
+    return t("非法");
+  },
+  get missing() {
+    return t("源已变化");
+  },
+  get excluded() {
+    return t("已排除");
+  },
 };

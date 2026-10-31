@@ -27,6 +27,10 @@ export interface HueSat {
 
 export interface Settings {
   mode: ThemeMode;
+  /** 自动检查更新的频率；manual = 只手动检查 */
+  updateCheck: "startup" | "daily" | "weekly" | "manual";
+  /** 界面语言；system = 跟随系统，系统语言不在支持列表时回落英语 */
+  language: "system" | "zh-CN" | "zh-TW" | "en" | "ja" | "es";
   /** 强调色预设 id，选了自定义就是 "custom" */
   accent: string;
   /** 通道值始终与预设保持同步，首帧脚本直接读它们，不用查表 */
@@ -171,6 +175,8 @@ export const MODES: { id: ThemeMode; name: string }[] = [
 
 export const DEFAULT_SETTINGS: Settings = {
   mode: "system",
+  updateCheck: "daily",
+  language: "system",
   accent: "blue",
   accentH: 212,
   accentS: 74,

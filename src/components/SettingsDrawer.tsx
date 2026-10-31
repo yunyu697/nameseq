@@ -18,6 +18,12 @@ import {
   type Settings,
 } from "../theme";
 import {
+  fetchReleases,
+  useUpdater,
+  type ReleaseInfo,
+} from "../updateManager";
+import { SUPPORTED_LANGS } from "../i18n";
+import {
   IconMonitor,
   IconMoon,
   IconPalette,
@@ -30,6 +36,8 @@ interface Props {
   settings: Settings;
   onChange: (patch: Partial<Settings>) => void;
   onClose: () => void;
+  /** 更新检查器放在 App 里（抽屉关着也能自动检查），传进来共用状态 */
+  updater: ReturnType<typeof useUpdater>;
 }
 
 const MODE_ICON = {
@@ -78,14 +86,48 @@ function HueSatSlider({
   );
 }
 
-/** 版本与更新。
-    更新检查要走 Tauri 的 updater 插件，浏览器里预览界面时它不存在，
-    所以全部用动态 import —— 拿不到就只显示版本号，不白屏。 */
-function UpdateSection({ open }: { open: boolean }) {
+const CHECK_FREQS: { id: Settings["updateCheck"]; label: string }[] = [
+  { id: "startup", label: "每次启动" },
+  { id: "daily", label: "每天" },
+  { id: "weekly", label: "每周" },
+  { id: "manual", label: "仅手动" },
+];
+
+/** 把 markdown 压成可读文本（去图片/链接壳/井号），保留换行 */
+function plainNotes(md: string): string {
+  return md
+    .replace(/<[^>]+>/g, "")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/^[*-]\s+/gm, "· ")
+    .trim();
+}
+
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** 版本与更新。检查频率可选；发现更新后给三个入口：
+    立即更新（下载+安装+重启）、仅下载（装不装自己定）、打开下载页面。 */
+function UpdateSection({
+  open,
+  settings,
+  onChange,
+  updater,
+}: {
+  open: boolean;
+  settings: Settings;
+  onChange: (patch: Partial<Settings>) => void;
+  updater: ReturnType<typeof useUpdater>;
+}) {
   const [version, setVersion] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState("");
-  const [tone, setTone] = useState<"dim" | "ok" | "err">("dim");
+  const [releases, setReleases] = useState<ReleaseInfo[] | null>(null);
+  const { phase } = updater;
 
   useEffect(() => {
     if (!open) return;
@@ -95,39 +137,42 @@ function UpdateSection({ open }: { open: boolean }) {
       .catch(() => setVersion(""));
   }, [open]);
 
-  const check = async () => {
-    setBusy(true);
-    setTone("dim");
-    setNote("正在检查…");
-    try {
-      const { check } = await import("@tauri-apps/plugin-updater");
-      const update = await check();
-      if (!update) {
-        setTone("ok");
-        setNote("已经是最新版本");
-        return;
-      }
-      setNote(`发现 ${update.version}，开始下载…`);
-      let got = 0;
-      let total = 0;
-      await update.downloadAndInstall((e) => {
-        if (e.event === "Started") total = e.data.contentLength ?? 0;
-        else if (e.event === "Progress") {
-          got += e.data.chunkLength;
-          if (total > 0) setNote(`下载中 ${Math.round((got / total) * 100)}%`);
-        } else if (e.event === "Finished") {
-          setNote("下载完成，正在安装…");
-        }
-      });
-      setTone("ok");
-      setNote("已安装，正在重启");
-      const { relaunch } = await import("@tauri-apps/plugin-process");
-      await relaunch();
-    } catch (e) {
-      setTone("err");
-      setNote(`检查失败：${String(e)}`);
-    } finally {
-      setBusy(false);
+  // 更新日志：GitHub releases，缓存 1 小时，失败就显示「暂时拿不到」
+  useEffect(() => {
+    if (!open || releases) return;
+    void fetchReleases().then((r) => setReleases(r ?? []));
+  }, [open, releases]);
+
+  const busy =
+    phase.status === "checking" ||
+    phase.status === "downloading" ||
+    phase.status === "installing";
+
+  const statusLine = () => {
+    switch (phase.status) {
+      case "checking":
+        return <p className="set-hint dim">正在检查…</p>;
+      case "uptodate":
+        return <p className="set-hint ok">已经是最新版本</p>;
+      case "error":
+        return <p className="set-hint err">检查失败：{phase.error}</p>;
+      case "downloading":
+        return (
+          <div className="upd-progress">
+            <div className="bar">
+              <i style={{ width: `${phase.progress}%` }} />
+            </div>
+            <span>下载中 {phase.progress}%</span>
+          </div>
+        );
+      case "installing":
+        return <p className="set-hint ok">下载完成，正在安装，马上重启…</p>;
+      default:
+        return (
+          <p className="set-hint">
+            更新包带签名校验，只会安装用本项目密钥签过名的版本
+          </p>
+        );
     }
   };
 
@@ -139,16 +184,120 @@ function UpdateSection({ open }: { open: boolean }) {
           <b>名序 NameSeq</b>
           <span>版本 {version || "—"}</span>
         </div>
-        <button className="btn" onClick={check} disabled={busy}>
+        <button
+          className="btn"
+          onClick={() => void updater.check(false)}
+          disabled={busy}
+        >
           {busy ? "检查中…" : "检查更新"}
         </button>
       </div>
-      {note && <p className={`set-hint ${tone}`}>{note}</p>}
-      {!note && (
-        <p className="set-hint">
-          更新包带签名校验，只会安装用本项目密钥签过名的版本
-        </p>
+
+      <label className="fld upd-freq">
+        <span>自动检查频率</span>
+        <select
+          value={settings.updateCheck}
+          onChange={(e) =>
+            onChange({
+              updateCheck: e.target.value as Settings["updateCheck"],
+            })
+          }
+        >
+          {CHECK_FREQS.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {settings.updateCheck === "manual" && (
+        <p className="set-hint dim">已关闭自动检查，想更新时点上面的按钮</p>
       )}
+
+      {phase.status === "available" && (
+        <div className="upd-card">
+          <div className="upd-head">
+            <b>发现新版本 v{phase.version}</b>
+          </div>
+          {phase.notes ? (
+            <pre className="upd-notes">{plainNotes(phase.notes)}</pre>
+          ) : (
+            <p className="set-hint dim">更新说明见下方更新日志</p>
+          )}
+          <div className="upd-actions">
+            <button
+              className="btn tiny primary"
+              onClick={() => void updater.installNow()}
+            >
+              更新
+            </button>
+            <button
+              className="btn tiny"
+              onClick={() => void updater.downloadOnly()}
+            >
+              仅下载
+            </button>
+            <button
+              className="btn tiny ghost"
+              onClick={() => void updater.openReleasePage()}
+            >
+              打开下载页面
+            </button>
+          </div>
+        </div>
+      )}
+      {phase.status === "downloaded" && (
+        <div className="upd-card">
+          <b>安装包已下载</b>
+          <p className="set-hint dim">想现在装就点下面，重启后生效</p>
+          <div className="upd-actions">
+            <button
+              className="btn tiny primary"
+              onClick={() => void updater.installDownloaded()}
+            >
+              安装并重启
+            </button>
+            <button
+              className="btn tiny ghost"
+              onClick={() => void updater.openReleasePage()}
+            >
+              打开下载页面
+            </button>
+          </div>
+        </div>
+      )}
+
+      {statusLine()}
+
+      <div className="rel-notes">
+        <h5>更新日志</h5>
+        {releases === null ? (
+          <p className="set-hint dim">正在加载…</p>
+        ) : releases.length === 0 ? (
+          <p className="set-hint dim">暂时拿不到更新日志（离线或网络受限）</p>
+        ) : (
+          releases.map((r) => {
+            const isCur = version && r.tag === `v${version}`;
+            const isNew =
+              phase.status === "available" && r.tag === `v${phase.version}`;
+            return (
+              <details key={r.tag} className="rel-item" open={isNew}>
+                <summary>
+                  <b>{r.name || r.tag}</b>
+                  {isCur && <i className="rel-tag cur">当前版本</i>}
+                  {isNew && <i className="rel-tag new">新版本</i>}
+                  <span className="rel-date">{fmtDate(r.date)}</span>
+                </summary>
+                {r.body ? (
+                  <pre className="rel-body">{plainNotes(r.body)}</pre>
+                ) : (
+                  <p className="set-hint dim">这一版没有写说明</p>
+                )}
+              </details>
+            );
+          })
+        )}
+      </div>
     </section>
   );
 }
@@ -158,6 +307,7 @@ export default function SettingsDrawer({
   settings,
   onChange,
   onClose,
+  updater,
 }: Props) {
   const dark = resolveDark(settings.mode);
 
@@ -209,6 +359,22 @@ export default function SettingsDrawer({
         </header>
 
         <div className="drawer-body">
+          <section className="set-sec">
+            <h4>语言</h4>
+            <div className="seg seg-wrap">
+              {SUPPORTED_LANGS.map((l) => (
+                <button
+                  key={l.id}
+                  className={`seg-item ${settings.language === l.id ? "on" : ""}`}
+                  onClick={() => onChange({ language: l.id })}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+            <p className="set-hint">切换语言后立即生效，无需重启</p>
+          </section>
+
           <section className="set-sec">
             <h4>主题模式</h4>
             <div className="seg">
@@ -411,7 +577,12 @@ export default function SettingsDrawer({
             </label>
           </section>
 
-          <UpdateSection open={open} />
+          <UpdateSection
+            open={open}
+            settings={settings}
+            onChange={onChange}
+            updater={updater}
+          />
         </div>
 
         <footer className="drawer-foot">

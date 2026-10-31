@@ -1,4 +1,5 @@
 import { IconFiles, IconMoon, IconSettings, IconSun } from "./Icons";
+import { t } from "../i18n";
 
 interface Props {
   count: number;
@@ -22,7 +23,7 @@ export default function TopBar({
           <IconFiles size={17} />
         </span>
         <div className="brand-text">
-          <h1>名序</h1>
+          <h1>{t("名序")}</h1>
           <span className="ver">{__APP_VERSION__}</span>
         </div>
       </div>
@@ -31,21 +32,21 @@ export default function TopBar({
         {count > 0 && (
           <span className="stat-chip" key={`${count}-${sizeText}`}>
             <IconFiles size={13} />
-            {count} 个文件
+            {t("{n} 个文件", { n: count })}
             <i>{sizeText}</i>
           </span>
         )}
         <button
           className="icon-btn"
           onClick={onToggleDark}
-          title={dark ? "切换到浅色主题" : "切换到深色主题"}
+          title={dark ? t("切换到浅色主题") : t("切换到深色主题")}
         >
           {dark ? <IconSun /> : <IconMoon />}
         </button>
         <button
           className="icon-btn"
           onClick={onSettings}
-          title="外观与偏好设置 (Ctrl+,)"
+          title={t("外观与偏好设置 (Ctrl+,)")}
         >
           <IconSettings />
         </button>

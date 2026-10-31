@@ -49,6 +49,8 @@ pub enum SortBy {
     Modified,
     Size,
     Ext,
+    /// 按所在文件夹路径排序（组内条目仍保持原相对顺序，除非再配次级键）
+    Folder,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +62,10 @@ pub struct RenameConfig {
     pub keep_ext: bool,
     #[serde(default)]
     pub sort_by: SortBy,
+    /// 次级排序键：主键相同的条目再按它细分。None = 不用次级键。
+    /// 例：主键 Folder + 次键 Name = 「先按文件夹分组，组内按文件名」。
+    #[serde(default)]
+    pub sort_by2: Option<SortBy>,
     #[serde(default)]
     pub descending: bool,
     /// IMG_2 排在 IMG_10 前面
@@ -95,6 +101,7 @@ impl Default for RenameConfig {
             }],
             keep_ext: true,
             sort_by: SortBy::Original,
+            sort_by2: None,
             descending: false,
             natural_sort: true,
             start_index: 1,
@@ -435,31 +442,56 @@ fn sort_entries(order: &mut [usize], entries: &[FileEntry], cfg: &RenameConfig) 
             x.cmp(&y)
         }
     };
-
-    match cfg.sort_by {
-        SortBy::Original => {}
-        SortBy::Name => order.sort_by(|&a, &b| cmp_name(a, b)),
-        SortBy::Pinyin => order.sort_by(|&a, &b| {
-            let (x, y) = (
-                crate::cn::pinyin_key(&entries[a].stem),
-                crate::cn::pinyin_key(&entries[b].stem),
-            );
-            if cfg.natural_sort {
-                natural_cmp(&x, &y)
-            } else {
-                x.cmp(&y)
+    let cmp_folder = |a: usize, b: usize| -> Ordering {
+        let (x, y) = (
+            validate::fold(&entries[a].dir),
+            validate::fold(&entries[b].dir),
+        );
+        if cfg.natural_sort {
+            natural_cmp(&x, &y)
+        } else {
+            x.cmp(&y)
+        }
+    };
+    let cmp_by = |key: SortBy, a: usize, b: usize| -> Ordering {
+        match key {
+            SortBy::Original => a.cmp(&b),
+            SortBy::Name => cmp_name(a, b),
+            SortBy::Pinyin => {
+                let (x, y) = (
+                    crate::cn::pinyin_key(&entries[a].stem),
+                    crate::cn::pinyin_key(&entries[b].stem),
+                );
+                if cfg.natural_sort {
+                    natural_cmp(&x, &y)
+                } else {
+                    x.cmp(&y)
+                }
+                .then_with(|| cmp_name(a, b))
             }
-            .then_with(|| cmp_name(a, b))
-        }),
-        SortBy::Ext => order.sort_by(|&a, &b| {
-            let (x, y) = (
-                validate::fold(&entries[a].ext),
-                validate::fold(&entries[b].ext),
-            );
-            x.cmp(&y).then_with(|| cmp_name(a, b))
-        }),
-        SortBy::Modified => order.sort_by_key(|&i| entries[i].modified_ms),
-        SortBy::Size => order.sort_by_key(|&i| entries[i].size),
+            // 同文件夹保持扫描顺序靠排序稳定性即可；显式索引兜底会让主键永不
+            // Equal，次级键就永远没机会生效
+            SortBy::Folder => cmp_folder(a, b),
+            SortBy::Ext => {
+                let (x, y) = (
+                    validate::fold(&entries[a].ext),
+                    validate::fold(&entries[b].ext),
+                );
+                x.cmp(&y).then_with(|| cmp_name(a, b))
+            }
+            SortBy::Modified => entries[a].modified_ms.cmp(&entries[b].modified_ms),
+            SortBy::Size => entries[a].size.cmp(&entries[b].size),
+        }
+    };
+
+    // 组合排序：主键相同的条目再按次级键细分（元组式比较，不是两次排序——
+    // 那样「添加顺序」当次键时会抹掉第一轮的结果）。
+    // 单键时的行为与旧版完全一致（Pinyin/Ext 自带的同名兜底保留）。
+    match cfg.sort_by2 {
+        Some(k2) if k2 != cfg.sort_by => {
+            order.sort_by(|&a, &b| cmp_by(cfg.sort_by, a, b).then_with(|| cmp_by(k2, a, b)));
+        }
+        _ => order.sort_by(|&a, &b| cmp_by(cfg.sort_by, a, b)),
     }
     if cfg.descending {
         order.reverse();
@@ -711,6 +743,52 @@ mod tests {
         assert_eq!(p.executable, 1);
         assert_eq!(p.excluded, 1);
         assert_eq!(p.ops[1].status, OpStatus::Excluded);
+    }
+
+    #[test]
+    fn folder_sort_groups_by_directory() {
+        let c = cfg(vec![rule(Action::Prefix { text: "X_".into() })]);
+        let es = vec![
+            entry(1, "/b", "2.txt"),
+            entry(2, "/a", "z.txt"),
+            entry(3, "/b", "1.txt"),
+            entry(4, "/a", "a.txt"),
+        ];
+        let mut c2 = c.clone();
+        c2.sort_by = SortBy::Folder;
+        let p = build_plan(&es, &c2).unwrap();
+        let names: Vec<&str> = p.ops.iter().map(|o| o.old_name.as_str()).collect();
+        // 同文件夹内保持扫描顺序
+        assert_eq!(names, vec!["z.txt", "a.txt", "2.txt", "1.txt"]);
+    }
+
+    #[test]
+    fn composite_sort_folder_then_name() {
+        let c = cfg(vec![rule(Action::Prefix { text: "X_".into() })]);
+        let es = vec![
+            entry(1, "/b", "2.txt"),
+            entry(2, "/a", "z.txt"),
+            entry(3, "/b", "1.txt"),
+            entry(4, "/a", "a.txt"),
+        ];
+        let mut c2 = c.clone();
+        c2.sort_by = SortBy::Folder;
+        c2.sort_by2 = Some(SortBy::Name);
+        let p = build_plan(&es, &c2).unwrap();
+        let names: Vec<&str> = p.ops.iter().map(|o| o.old_name.as_str()).collect();
+        assert_eq!(names, vec!["a.txt", "z.txt", "1.txt", "2.txt"]);
+    }
+
+    #[test]
+    fn composite_sort_ignores_same_secondary() {
+        // 次键与主键相同等于没配，走单键路径即可
+        let c = cfg(vec![rule(Action::Prefix { text: "X_".into() })]);
+        let es = vec![entry(1, "/a", "b.txt"), entry(2, "/a", "a.txt")];
+        let mut c2 = c.clone();
+        c2.sort_by = SortBy::Name;
+        c2.sort_by2 = Some(SortBy::Name);
+        let p = build_plan(&es, &c2).unwrap();
+        assert_eq!(p.ops[0].old_name, "a.txt");
     }
 
     #[test]
