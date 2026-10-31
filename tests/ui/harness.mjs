@@ -13,8 +13,9 @@
  *   - mock 用 Page.addScriptToEvaluateOnNewDocument 注入，必须早于任何页面脚本
  */
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -161,7 +162,7 @@ export class Page {
    * 轮询直到表达式为真。返回最后一次的值（真值），超时则抛错并带诊断。
    * 导航过程中 execution context 会被销毁，所以求值失败也继续轮询。
    */
-  async waitFor(expression, { timeout = 8000, desc = expression } = {}) {
+  async waitFor(expression, { timeout = 15_000, desc = expression } = {}) {
     const deadline = Date.now() + timeout;
     let lastErr = null;
     while (Date.now() < deadline) {
@@ -203,7 +204,7 @@ export class Page {
   async goto(url) {
     await this.send("Page.navigate", { url });
     await this.waitFor('document.readyState === "complete"', {
-      timeout: 20_000,
+      timeout: 40_000,
       desc: "页面加载完成",
     });
   }
@@ -290,6 +291,18 @@ export class Page {
   }
 }
 
+/** 让系统给一个空闲端口（拿到就关，立刻给 Chrome 用） */
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const srv = createNetServer();
+    srv.on("error", reject);
+    srv.listen(0, "127.0.0.1", () => {
+      const { port } = srv.address();
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
 /**
  * 起 vite + Chrome，加载应用。
  * @param {object} opts
@@ -310,17 +323,21 @@ export async function launch({ width = 1280, height = 820, mock = "" } = {}) {
 
   const userDataDir = await mkdtemp(join(tmpdir(), "nameseq-ui-"));
   const chromePath = findChrome();
+  // 不用 --remote-debugging-port=0 + DevToolsActivePort：那个文件在某些环境
+  // （CI runner 上遇到过）不写出来。自己挑端口再轮询 HTTP，能直接确认端口在服务
+  const debugPort = await freePort();
   const proc = spawn(
     chromePath,
     [
       "--headless=new",
-      "--remote-debugging-port=0",
+      `--remote-debugging-port=${debugPort}`,
       `--user-data-dir=${userDataDir}`,
       `--window-size=${width},${height}`,
       "--no-first-run",
       "--no-default-browser-check",
       "--no-sandbox",
       "--disable-dev-shm-usage",
+      "--disable-gpu",
       "--disable-extensions",
       "--disable-background-networking",
       "--disable-sync",
@@ -328,37 +345,48 @@ export async function launch({ width = 1280, height = 820, mock = "" } = {}) {
       "--hide-crash-restore-bubble",
       "about:blank",
     ],
-    { stdio: "ignore" },
+    // stderr 要收着：CI 上 Chrome 起不来时，这是唯一能看到原因的地方
+    { stdio: ["ignore", "ignore", "pipe"] },
   );
 
   let exited = false;
+  let stderr = "";
   proc.on("exit", () => {
     exited = true;
   });
+  proc.stderr?.on("data", (d) => {
+    stderr = (stderr + d.toString()).slice(-4000);
+  });
 
-  // 端口在 DevToolsActivePort 的第一行
-  const portFile = join(userDataDir, "DevToolsActivePort");
-  let port = null;
-  for (let i = 0; i < 200 && !exited; i++) {
+  let version = null;
+  for (let i = 0; i < 300 && !exited; i++) {
     try {
-      const txt = await readFile(portFile, "utf8");
-      const first = txt.split("\n")[0]?.trim();
-      if (first && /^\d+$/.test(first)) {
-        port = Number(first);
+      const r = await fetch(`http://127.0.0.1:${debugPort}/json/version`, {
+        signal: AbortSignal.timeout(1000),
+      });
+      if (r.ok) {
+        version = await r.json();
         break;
       }
     } catch {
-      /* 还没写出来 */
+      /* 还没起来 */
     }
-    await sleep(50);
+    await sleep(100);
   }
-  if (!port) {
+  if (!version) {
     proc.kill();
     await server.close();
-    throw new Error("Chrome 没起来（读不到 DevToolsActivePort）");
+    throw new Error(
+      [
+        `Chrome 没起来（端口 ${debugPort} 一直没响应）`,
+        `  可执行文件：${chromePath}`,
+        `  进程已退出：${exited}`,
+        `  用户数据目录：${userDataDir}`,
+        `  stderr：${stderr.trim() || "(空)"}`,
+      ].join("\n"),
+    );
   }
 
-  const version = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json();
   const cdp = await Cdp.connect(version.webSocketDebuggerUrl);
   const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await cdp.send("Target.attachToTarget", {

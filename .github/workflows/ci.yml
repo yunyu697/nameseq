@@ -50,4 +50,31 @@ jobs:
           cache: npm
       - run: npm ci
       - name: UI 回归（布局零变形 / 拖拽排序 / 分区折叠 / i18n 完整性）
-        run: npm run test:ui
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:ui 2>&1 | tee ui-test.log
+      # 日志要登录才能看，把断言原文写进注解，失败原因直接在 PR/提交页可见
+      - name: 把失败原因写进注解
+        if: failure()
+        shell: pwsh
+        run: |
+          if (-not (Test-Path ui-test.log)) {
+            Write-Output "::error::没有生成测试日志"
+            exit 0
+          }
+          $log = Get-Content ui-test.log -Raw
+          $blocks = [regex]::Matches($log, '(?s)not ok \d+ - ([^\r\n]+)\r?\n.*?error: \|-?\r?\n(.*?)\r?\n\s+code:')
+          $i = 0
+          foreach ($b in $blocks) {
+            if ($i -ge 4) { break }
+            $title = ($b.Groups[1].Value.Trim() -replace '[:\r\n]', ' ')
+            $msg = ($b.Groups[2].Value -replace '\r?\n\s*', ' ').Trim()
+            if ($msg.Length -gt 600) { $msg = $msg.Substring(0, 600) }
+            Write-Output "::error title=$title::$msg"
+            $i++
+          }
+          if ($i -eq 0) {
+            $tail = ($log -split "`n" | Select-Object -Last 20) -join " | "
+            Write-Output "::error::没解析到断言块，日志尾部：$tail"
+          }
