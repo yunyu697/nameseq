@@ -30,6 +30,7 @@ import {
   type PresetGroup,
 } from "./presets";
 import { emptyFilter, newRule } from "./rules";
+import { applyRenamed, remapPaths } from "./renameApply";
 import {
   applySettings,
   loadSettings,
@@ -769,7 +770,10 @@ export default function App() {
           (r.skipped ? `，跳过 ${r.skipped} 个` : "") +
           (firstErr?.hint ? `（${firstErr.hint}）` : ""),
       );
-      await refresh();
+      // 改完名原地更新路径，不重扫：重扫会丢掉手动排序和排除勾选，大目录还要等几秒。
+      // 只有成功的结果参与映射，失败的文件路径保持原样（它确实没改名）
+      setEntries((prev) => applyRenamed(prev, r.results));
+      setRoots((prev) => remapPaths(prev, r.results));
       await reloadBatches();
     } catch (e) {
       notify("err", String(e));
@@ -777,7 +781,7 @@ export default function App() {
       setBusy(false);
       setProgress(null);
     }
-  }, [plan, busy, notify, refresh, reloadBatches]);
+  }, [plan, busy, notify, reloadBatches]);
 
   const undo = useCallback(
     async (batchId: string) => {
@@ -790,7 +794,10 @@ export default function App() {
           `已撤销：还原 ${r.succeeded} 个` +
             (r.failed ? `，失败 ${r.failed} 个` : ""),
         );
-        await refresh();
+        // 撤销同样原地回写（结果里的 from/to 已经是「新名 → 旧名」的方向）。
+        // 不重扫的理由和执行时一样：保住手动排序和排除勾选。
+        setEntries((prev) => applyRenamed(prev, r.results));
+        setRoots((prev) => remapPaths(prev, r.results));
         await reloadBatches();
       } catch (e) {
         notify("err", String(e));
@@ -798,7 +805,7 @@ export default function App() {
         setBusy(false);
       }
     },
-    [busy, notify, refresh, reloadBatches],
+    [busy, notify, reloadBatches],
   );
 
   const lastBatch = batches[0]?.batch ?? null;
@@ -820,7 +827,9 @@ export default function App() {
           ? `重试：成功 ${r.succeeded} 个，仍有 ${r.failed} 个没成功`
           : `重试成功，${r.succeeded} 个都改好了`,
       );
-      await refresh();
+      // 同上：重试成功的那些也要把新路径写回列表
+      setEntries((prev) => applyRenamed(prev, r.results));
+      setRoots((prev) => remapPaths(prev, r.results));
       await reloadBatches();
     } catch (e) {
       notify("err", String(e));
@@ -828,7 +837,7 @@ export default function App() {
       setBusy(false);
       setProgress(null);
     }
-  }, [failedOps, busy, notify, refresh, reloadBatches]);
+  }, [failedOps, busy, notify, reloadBatches]);
 
   /** 用户主动关掉失败提示（重试仍然可用，只是不再占版面） */
   const dismissFailures = useCallback(() => setLastFailures([]), []);
@@ -845,16 +854,19 @@ export default function App() {
           `已恢复：原名还原 ${r.succeeded} 个` +
             (r.failed ? `，${r.failed} 个没能还原（文件可能已被移动）` : ""),
         );
+        // 恢复也是「原地回写」：崩溃后列表里存的是临时名（.rnm-*），
+        // 映射表会把 临时名 → 原名 一起收掉，不需要重扫
+        setEntries((prev) => applyRenamed(prev, r.results));
+        setRoots((prev) => remapPaths(prev, r.results));
         await reloadBatches();
         await checkInterrupted();
-        await refresh();
       } catch (e) {
         notify("err", String(e));
       } finally {
         setBusy(false);
       }
     },
-    [busy, notify, reloadBatches, checkInterrupted, refresh],
+    [busy, notify, reloadBatches, checkInterrupted],
   );
 
   /* ---------------- 规则操作 ---------------- */

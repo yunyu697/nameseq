@@ -36,6 +36,8 @@ jobs:
       - run: npm ci
       - name: 类型检查
         run: npx tsc --noEmit
+      - name: 前端纯函数测试（路径回写 / 前缀替换边界）
+        run: npm run test:unit
       - name: 生产构建
         run: npm run build
 
