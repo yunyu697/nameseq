@@ -4,7 +4,10 @@ name: Release
 #   Windows → msi 安装包 + nsis exe 安装包 + 便携 zip
 #   macOS   → dmg 安装包（未签名，见下方说明）
 #   Linux   → deb + rpm + AppImage + 裸二进制
-# 自动更新签名（.sig）每个平台都生成；latest.json 仅由 Windows 产出（单平台更新清单，见下方说明）。
+# 自动更新签名（.sig）每个平台都生成。三个平台构建完只上传 artifact，
+# 由最后的 publish job 汇总成**一份多平台 latest.json** 再建 Release ——
+# updater 的端点是 releases/latest/download/latest.json，一个文件要同时服务
+# 三个平台，各平台各写一份只会互相覆盖，导致 mac/Linux 用户永远收不到更新。
 on:
   push:
     tags:
@@ -149,6 +152,8 @@ jobs:
         run: |
           mkdir -p release-assets
           cp dist-release/* release-assets/ 2>/dev/null || true
+          # 本地脚本按单平台生成了 latest.json，这里删掉：多平台合并版由 publish job 出
+          rm -f release-assets/latest.json
 
       - name: 收集 macOS 产物
         if: matrix.platform == 'macos'
@@ -165,12 +170,84 @@ jobs:
           find src-tauri/target/release/bundle -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" -o -name "*.sig" \) -exec cp {} release-assets/ \;
           cp src-tauri/target/release/nameseq release-assets/nameseq-linux-x64 2>/dev/null || true
 
-      - name: 上传到 Release
+      # 只上传 artifact，不建 Release：Release 由 publish job 统一建一次，
+      # 否则三个平台会各建/各改同一个 Release，latest.json 谁最后写谁生效。
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 3
+
+  # 汇总三个平台的签名，生成唯一一份多平台 latest.json，再建 Release。
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 取标签消息要完整历史，浅克隆拿不到
+          fetch-depth: 0
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 三个平台的产物合并到同一个目录（文件名互不冲突）
+      - name: 下载全部构建产物
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: 计算版本号
+        id: ver
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 取发版说明
+        id: notes
+        shell: bash
+        run: |
+          if [ "$(git cat-file -t "$GITHUB_REF_NAME")" = "tag" ]; then
+            msg=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
+          else
+            msg=$(git log -1 --format='%b' "$GITHUB_REF_NAME")
+          fi
+          msg=$(printf '%s' "$msg" | tr '\n' ' ' | tr -s ' ' | sed 's/^ *//;s/ *$//')
+          {
+            echo 'notes<<__NOTES_EOF__'
+            echo "$msg"
+            echo '__NOTES_EOF__'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: 合并生成多平台 latest.json
+        shell: bash
+        env:
+          NSQ_NOTES: ${{ steps.notes.outputs.notes }}
+        run: |
+          ls -1 release-assets
+          node scripts/latest.mjs \
+            --version "${{ steps.ver.outputs.version }}" \
+            --dir release-assets \
+            --notes "$NSQ_NOTES" \
+            --mac-arch aarch64
+          echo "--- 清单内容 ---"
+          cat release-assets/latest.json
+
+      - name: 建 Release 并上传全部产物
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: "名序 ${{ github.ref_name }}"
-          body: "多平台自动构建：Windows（msi/exe/便携zip）、macOS（dmg）、Linux（deb/rpm/AppImage/二进制）。自动更新签名见各包同名 .sig；更新清单 latest.json 由 Windows 产出。"
+          body: |
+            ${{ steps.notes.outputs.notes }}
+
+            ---
+            多平台自动构建：Windows（msi / exe / 便携 zip）、macOS（dmg）、Linux（deb / rpm / AppImage / 裸二进制）。
+            每个安装包旁边有同名 `.sig` 自动更新签名；`latest.json` 是三平台合并的更新清单。
           draft: false
           prerelease: false
           files: release-assets/*

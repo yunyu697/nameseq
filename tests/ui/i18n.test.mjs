@@ -19,6 +19,10 @@ const I18N = join(SRC, "i18n.ts");
 
 const LANGS = ["zhTW", "en", "ja", "es"];
 
+/** 只有含汉字的字符串才需要翻译：像 "IMG_0001"、"camelCase" 这类示例值
+    和格式名在哪种语言里都一样，不该逼着翻译。 */
+const HAS_CJK = /[\u4e00-\u9fa5]/;
+
 /** key 行：缩进 + （带引号的 key | 裸标识符 key）+ 冒号 + （字符串开始 | 行尾） */
 const KEY_LINE = /^\s*(?:"((?:[^"\\]|\\.)+)"|([^\s"'][^:]*?))\s*:\s*(?:$|["'`])/;
 
@@ -66,17 +70,73 @@ const DYNAMIC_SOURCES = [
   {
     file: "src/fileTypes.ts",
     re: /\bname:\s*"([^"]+)"/g,
-    note: "FILE_TYPE_GROUPS 的组名（渲染时走 t(g.name)）",
+    note: "FILE_TYPE_GROUPS 的组名（t(g.name)）",
   },
   {
     file: "src/components/FileFilterBar.tsx",
     re: /\blabel:\s*"([^"]+)"/g,
-    note: "排序选项的 label（渲染时走 t(o.label)）",
+    note: "排序选项的 label（t(o.label)）",
+  },
+  {
+    file: "src/components/PreviewTable.tsx",
+    re: /\blabel:\s*"([^"]+)"/g,
+    note: "预览标签页的 label（t(tabItem.label)）",
+  },
+  {
+    file: "src/components/SettingsDrawer.tsx",
+    re: /\blabel:\s*"([^"]+)"/g,
+    note: "更新检查频率的 label（t(f.label)）",
+  },
+  {
+    file: "src/rules.ts",
+    re: /^\s*(?:label|desc|example|title):\s*"((?:[^"\\]|\\.)*)"/gm,
+    note: "规则库/占位符的 label·desc·example 与分组标题",
+  },
+  {
+    file: "src/components/RuleEditor.tsx",
+    re: /\blabel="([^"]+)"/g,
+    note: "TokenRow 的标签（组件内部 t(label)）",
+  },
+  {
+    file: "src/theme.ts",
+    re: /^\s*(?:name|hint):\s*"((?:[^"\\]|\\.)*)"/gm,
+    note: "调色板/密度/圆角的名字与说明",
+  },
+  {
+    file: "src/presets.ts",
+    re: /^\s*(?:name|hint):\s*"((?:[^"\\]|\\.)*)"/gm,
+    note: "预设与预设分组的名字与说明",
   },
 ];
 
-/** 允许的动态调用：key 已由 DYNAMIC_SOURCES 覆盖 */
-const ALLOWED_DYNAMIC = [/^t\(g\.name\)$/, /^t\(o\.label\)$/];
+/** 整张 Record 都是文案的常量（值会被 t(ACTION_LABELS[k]) 消费） */
+const DYNAMIC_OBJECTS = [
+  { file: "src/rules.ts", name: "ACTION_LABELS", note: "规则类型的显示名" },
+  { file: "src/rules.ts", name: "CASE_LABELS", note: "大小写模式的显示名" },
+];
+
+/** 允许的动态调用：key 已由上面两个来源覆盖 */
+const ALLOWED_DYNAMIC = [
+  // 数据表字段：t(x.name) / t(hint.desc) / t(label) …
+  /^t\((?:[a-zA-Z_$][\w$]*\.)?(?:name|label|hint|desc|example|title)\)$/,
+  /^t\((?:ACTION_LABELS|CASE_LABELS)\[[^\]]+\]\)$/,
+];
+
+/** 取常量对象字面量里所有 `键: "值"` 的值 */
+async function objectValues({ file, name }) {
+  const src = await readFile(join(ROOT, file), "utf8");
+  const start = src.indexOf(`const ${name}`);
+  if (start < 0) throw new Error(`找不到 ${name} in ${file}`);
+  const end = src.indexOf("\n};", start);
+  const body = src.slice(start, end < 0 ? undefined : end);
+  const out = [];
+  for (const m of body.matchAll(
+    /^\s*(?:[\w$]+|"[^"]*")\s*:\s*"((?:[^"\\]|\\.)*)",?\s*$/gm,
+  )) {
+    out.push(m[1]);
+  }
+  return out;
+}
 
 /** 收集源码里所有静态 t("...") 的 key */
 async function collectUsedKeys() {
@@ -105,7 +165,14 @@ async function collectUsedKeys() {
   for (const src of DYNAMIC_SOURCES) {
     const text = await readFile(join(ROOT, src.file), "utf8");
     for (const m of text.matchAll(src.re)) {
+      if (!HAS_CJK.test(m[1])) continue;
       if (!used.has(m[1])) used.set(m[1], `${src.file}（${src.note}）`);
+    }
+  }
+  for (const obj of DYNAMIC_OBJECTS) {
+    for (const value of await objectValues(obj)) {
+      if (!HAS_CJK.test(value)) continue;
+      if (!used.has(value)) used.set(value, `${obj.file}（${obj.note}）`);
     }
   }
 

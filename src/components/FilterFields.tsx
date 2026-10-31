@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { Filter } from "../types";
 
 /** 小号数字输入框。空串表示「不限制」，所以值允许为 null。 */
@@ -46,7 +47,7 @@ export default function FilterFields({
   return (
     <>
       <label className="fld">
-        <span>只对扩展名生效（逗号分隔，留空不限）</span>
+        <span>{t("只对扩展名生效（逗号分隔，留空不限）")}</span>
         <input
           className="mono"
           value={filter.exts.join(",")}
@@ -62,7 +63,7 @@ export default function FilterFields({
         />
       </label>
       <label className="fld">
-        <span>文件名需匹配正则</span>
+        <span>{t("文件名需匹配正则")}</span>
         <input
           className="mono"
           value={filter.nameMatches}
@@ -72,11 +73,11 @@ export default function FilterFields({
       </label>
       <div className="grid2">
         <label className="fld">
-          <span>最小字节</span>
+          <span>{t("最小字节")}</span>
           <Num value={filter.minSize} onChange={(v) => onChange({ minSize: v })} />
         </label>
         <label className="fld">
-          <span>最大字节</span>
+          <span>{t("最大字节")}</span>
           <Num value={filter.maxSize} onChange={(v) => onChange({ maxSize: v })} />
         </label>
       </div>

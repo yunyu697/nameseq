@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import type { Action, CaseMode, Filter, Rule, RuleGroup } from "./types";
 
 export const ACTION_LABELS: Record<Action["kind"], string> = {
@@ -146,9 +147,10 @@ export function newRule(kind: Action["kind"]): Rule {
   };
 }
 
+/** 摘要里的引号：中文用「」，其它语言各自换成本地习惯的引号。 */
 const q = (s: string, n = 18) => {
-  const t = s.length > n ? `${s.slice(0, n)}…` : s;
-  return `「${t || "空"}」`;
+  const v = s.length > n ? `${s.slice(0, n)}…` : s;
+  return t("「{v}」", { v: v || t("空") });
 };
 
 /** 折叠状态下的单行摘要——让用户不展开也能读懂这条规则在做什么。 */
@@ -159,42 +161,52 @@ export function summarizeRule(a: Action): string {
     case "replace":
       return `${q(a.find)} → ${q(a.with)}`;
     case "remove":
-      return `删除 ${q(a.pattern)}`;
+      return t("删除 {v}", { v: q(a.pattern) });
     case "case":
-      return `转为${CASE_LABELS[a.mode]}`;
+      return t("转为{v}", { v: t(CASE_LABELS[a.mode]) });
     case "counter":
-      return `从 ${a.start} 起 · ${a.width} 位 · 步长 ${a.step}`;
+      return t("从 {start} 起 · {width} 位 · 步长 {step}", {
+        start: a.start,
+        width: a.width,
+        step: a.step,
+      });
     case "prefix":
-      return `前缀 ${q(a.text)}`;
+      return t("前缀 {v}", { v: q(a.text) });
     case "suffix":
-      return `后缀 ${q(a.text)}`;
+      return t("后缀 {v}", { v: q(a.text) });
     case "insert":
-      return `第 ${a.at} 字符处插入 ${q(a.text)}`;
+      return t("第 {at} 字符处插入 {v}", { at: a.at, v: q(a.text) });
     case "trim":
-      return a.chars ? `去掉首尾 ${q(a.chars)}` : "去掉首尾空白";
+      return a.chars
+        ? t("去掉首尾 {v}", { v: q(a.chars) })
+        : t("去掉首尾空白");
     case "normalize": {
       const on: string[] = [];
-      if (a.fullwidth) on.push("全角→半角");
-      if (a.diacritics) on.push("去音标");
-      if (a.emoji) on.push("去 emoji");
-      if (a.collapseSpace) on.push("合并空格");
-      return on.length ? on.join(" · ") : "未选择任何处理";
+      if (a.fullwidth) on.push(t("全角→半角"));
+      if (a.diacritics) on.push(t("去音标"));
+      if (a.emoji) on.push(t("去 emoji"));
+      if (a.collapseSpace) on.push(t("合并空格"));
+      return on.length ? on.join(" · ") : t("未选择任何处理");
     }
     case "date": {
       const src =
         a.source === "exif"
-          ? "拍摄时间"
+          ? t("拍摄时间")
           : a.source === "now"
-            ? "当前时间"
-            : "修改时间";
-      return `${a.format}（${src}）`;
+            ? t("当前时间")
+            : t("修改时间");
+      return t("{fmt}（{src}）", { fmt: a.format, src });
     }
     case "setExt":
-      return `扩展名 → ${a.ext || "（空）"}`;
+      return t("扩展名 → {v}", { v: a.ext || t("（空）") });
     case "truncate":
-      return a.fromEnd ? `保留末尾 ${a.maxChars} 字符` : `保留前 ${a.maxChars} 字符`;
+      return a.fromEnd
+        ? t("保留末尾 {n} 字符", { n: a.maxChars })
+        : t("保留前 {n} 字符", { n: a.maxChars });
     case "chineseNumber":
-      return a.mode === "toChinese" ? "数字 → 中文（第12章 → 第十二章）" : "中文 → 数字（第十二章 → 第12章）";
+      return a.mode === "toChinese"
+        ? t("数字 → 中文（第12章 → 第十二章）")
+        : t("中文 → 数字（第十二章 → 第12章）");
   }
 }
 
@@ -205,15 +217,15 @@ export function ruleTags(a: Action): string[] {
     (a.kind === "replace" || a.kind === "remove") &&
     a.regex
   )
-    tags.push("正则");
+    tags.push(t("正则"));
   if (
     (a.kind === "replace" || a.kind === "remove") &&
     !a.caseSensitive
   )
-    tags.push("忽略大小写");
-  if (a.kind === "counter" && a.perFolder) tags.push("按目录");
-  if (a.kind === "counter" && a.base !== "decimal") tags.push("字母");
-  if (a.kind === "truncate" && a.fromEnd) tags.push("从尾部");
+    tags.push(t("忽略大小写"));
+  if (a.kind === "counter" && a.perFolder) tags.push(t("按目录"));
+  if (a.kind === "counter" && a.base !== "decimal") tags.push(t("字母"));
+  if (a.kind === "truncate" && a.fromEnd) tags.push(t("从尾部"));
   return tags;
 }
 
@@ -407,7 +419,7 @@ export const MODIFIERS: TokenHint[] = [
     example: "IMG_0001",
   },
   {
-    token: "|default:未命名",
+    token: "|default:untitled",
     label: "兜底",
     desc: "前面结果为空时用冒号后的内容代替，避免出现空文件名。",
     example: "未命名",

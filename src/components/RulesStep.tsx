@@ -109,8 +109,8 @@ export default function RulesStep({
   useEffect(() => {
     if (!panel) return;
     const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!toolbarRef.current?.contains(t) && !popRef.current?.contains(t)) {
+      const node = e.target as Node;
+      if (!toolbarRef.current?.contains(node) && !popRef.current?.contains(node)) {
         setPanel(null);
       }
     };
@@ -233,7 +233,7 @@ export default function RulesStep({
               <div className="lib-body">
                 {ACTION_GROUPS.map((g) => (
                   <div className="lib-group" key={g.title}>
-                    <span className="lib-title">{g.title}</span>
+                    <span className="lib-title">{t(g.title)}</span>
                     <div className="lib-items">
                       {g.kinds.map((k) => (
                         <button
@@ -242,7 +242,7 @@ export default function RulesStep({
                           onClick={() => onAddRule(k)}
                         >
                           <IconPlus size={13} />
-                          {ACTION_LABELS[k]}
+                          {t(ACTION_LABELS[k])}
                         </button>
                       ))}
                     </div>
@@ -267,7 +267,7 @@ export default function RulesStep({
                   autoFocus
                   className="mono"
                   value={draft}
-                  placeholder="给这套规则起个名字"
+                  placeholder={t("给这套规则起个名字")}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") commit();
@@ -281,16 +281,16 @@ export default function RulesStep({
                   className="save-group"
                   value={draftGroup}
                   onChange={(e) => setDraftGroup(e.target.value as PresetGroup)}
-                  title="放到哪个分组"
+                  title={t("放到哪个分组")}
                 >
                   {PRESET_GROUPS.map((d) => (
                     <option key={d.id} value={d.id}>
-                      {d.name}
+                      {t(d.name)}
                     </option>
                   ))}
                 </select>
                 <button className="btn tiny primary" onClick={commit}>
-                  保存
+                  {t("保存")}
                 </button>
                 <button
                   className="btn tiny"
@@ -299,7 +299,7 @@ export default function RulesStep({
                     setDraft("");
                   }}
                 >
-                  取消
+                  {t("取消")}
                 </button>
               </div>
             )}
@@ -312,12 +312,12 @@ export default function RulesStep({
                     <header
                       className="preset-group-head"
                       onClick={() => toggleGroup(g.group)}
-                      title={def.hint}
+                      title={t(def.hint)}
                     >
                       <span className={`chev ${open ? "open" : ""}`}>
                         <IconChevron />
                       </span>
-                      <b>{def.name}</b>
+                      <b>{t(def.name)}</b>
                       <span className="preset-group-count">
                         {g.items.length}
                       </span>
@@ -329,25 +329,25 @@ export default function RulesStep({
                             <button
                               key={p.id}
                               className="preset"
-                              title={p.hint}
+                              title={t(p.hint)}
                               onClick={() => onApplyPreset(p)}
                             >
-                              <span className="preset-name">{p.name}</span>
-                              <span className="preset-hint">{p.hint}</span>
+                              <span className="preset-name">{t(p.name)}</span>
+                              <span className="preset-hint">{t(p.hint)}</span>
                             </button>
                           ) : (
                             <div
                               key={p.id}
                               className="preset mine"
-                              title={p.hint}
+                              title={t(p.hint)}
                             >
                               <button
                                 className="preset-main"
                                 onClick={() => onApplyPreset(p)}
                               >
-                                <span className="preset-name">{p.name}</span>
+                                <span className="preset-name">{t(p.name)}</span>
                                 <span className="preset-hint">
-                                  {p.rules.length} 条规则
+                                  {t("{n} 条规则", { n: p.rules.length })}
                                 </span>
                               </button>
                               <button
@@ -370,7 +370,7 @@ export default function RulesStep({
             <div className="chain-io">
               <button className="btn tiny" onClick={onImportChain}>
                 <IconLayers size={12} />
-                导入 .nsq
+                {t("导入 .nsq")}
               </button>
               <button
                 className="btn tiny"
@@ -378,9 +378,9 @@ export default function RulesStep({
                 disabled={rules.length === 0}
               >
                 <IconSave size={12} />
-                导出当前链
+                {t("导出当前链")}
               </button>
-              <span className="io-hint">也可以把 .nsq 直接拖进窗口</span>
+              <span className="io-hint">{t("也可以把 .nsq 直接拖进窗口")}</span>
             </div>
             </div>,
             document.body,
@@ -400,18 +400,18 @@ export default function RulesStep({
 
       <section className="chain">
         <header className="chain-head">
-          <h3>规则链</h3>
+          <h3>{t("规则链")}</h3>
           <span className="chain-count">
-            {rules.length} 条
+            {t("{n} 条", { n: rules.length })}
             {rules.some((r) => !r.enabled) &&
-              ` · ${rules.filter((r) => !r.enabled).length} 条已停用`}
+              ` · ${t("{n} 条已停用", { n: rules.filter((r) => !r.enabled).length })}`}
             {ruleGroups.some((g) => !g.enabled) &&
-              ` · ${ruleGroups.filter((g) => !g.enabled).length} 组已停用`}
+              ` · ${t("{n} 组已停用", { n: ruleGroups.filter((g) => !g.enabled).length })}`}
           </span>
-          <span className="chain-hint">从上到下依次执行</span>
+          <span className="chain-hint">{t("从上到下依次执行")}</span>
           {rules.length > 1 && (
             <button className="link-btn" onClick={() => onSetAllOpen(!allOpen)}>
-              {allOpen ? "全部折叠" : "全部展开"}
+              {allOpen ? t("全部折叠") : t("全部展开")}
             </button>
           )}
         </header>

@@ -88,17 +88,17 @@ const BIG_BATCH = 200;
 /** 大批量的确认框。浏览器里预览界面时没有原生对话框，退化成 window.confirm。 */
 async function askBigBatch(n: number): Promise<boolean> {
   const msg =
-    `即将改名 ${n} 个文件。\n\n` +
-    "批量改名没法逐条核对，虽然可以用「撤销」整批回滚，建议先看一眼右侧预览里的差异。";
+    `${t("即将改名 {n} 个文件。", { n })}\n\n` +
+    t("批量改名没法逐条核对，虽然可以用「撤销」整批回滚，建议先看一眼右侧预览里的差异。");
   try {
     return await confirmDialog(msg, {
-      title: "确认批量改名",
+      title: t("确认批量改名"),
       kind: "warning",
-      okLabel: "继续执行",
-      cancelLabel: "再看看",
+      okLabel: t("继续执行"),
+      cancelLabel: t("再看看"),
     });
   } catch {
-    return window.confirm(`即将改名 ${n} 个文件，继续？`);
+    return window.confirm(t("即将改名 {n} 个文件，继续？", { n }));
   }
 }
 
@@ -272,7 +272,9 @@ export default function App() {
     if (st === "available" && prevUpdStatus.current !== "available") {
       notify(
         "ok",
-        `发现新版本 v${updater.phase.version}，到「设置 → 关于与更新」里选择更新方式`,
+        t("发现新版本 v{v}，到「设置 → 关于与更新」里选择更新方式", {
+          v: updater.phase.version ?? "",
+        }),
       );
     }
     prevUpdStatus.current = st;
@@ -362,7 +364,7 @@ export default function App() {
         const rawGroups = Array.isArray(withCfg.groups) ? withCfg.groups : [];
         const groups = rawGroups.map((g) => ({
           id: g.id || `g${Math.random().toString(36).slice(2, 8)}`,
-          name: g.name ?? "分组",
+          name: g.name ?? t("分组"),
           enabled: g.enabled ?? true,
           filter: { ...emptyFilter(), ...(g.filter ?? {}) },
         }));
@@ -380,7 +382,10 @@ export default function App() {
         setCollapsed((c) => ({ ...c, rules: false }));
         notify(
           "ok",
-          `已载入规则链「${chain.name || "未命名"}」（${chain.config.rules.length} 条规则）`,
+          t("已载入规则链「{name}」（{n} 条规则）", {
+            name: chain.name || t("未命名"),
+            n: chain.config.rules.length,
+          }),
         );
       } catch (e) {
         notify("err", String(e));
@@ -392,8 +397,8 @@ export default function App() {
   const importChain = useCallback(async () => {
     const sel = await open({
       multiple: false,
-      title: "选择规则链文件",
-      filters: [{ name: "名序规则链", extensions: ["nsq", "json"] }],
+      title: t("选择规则链文件"),
+      filters: [{ name: t("名序规则链"), extensions: ["nsq", "json"] }],
     });
     if (!sel) return;
     await loadChain(Array.isArray(sel) ? sel[0] : sel);
@@ -401,7 +406,7 @@ export default function App() {
 
   const exportChain = useCallback(async () => {
     if (config.rules.length === 0) {
-      notify("warn", "规则链是空的，先加一条规则再导出");
+      notify("warn", t("规则链是空的，先加一条规则再导出"));
       return;
     }
     const stamp = new Date()
@@ -409,16 +414,16 @@ export default function App() {
       .slice(0, 10)
       .replace(/-/g, "");
     const path = await save({
-      title: "导出规则链",
-      defaultPath: `规则链-${stamp}.nsq`,
-      filters: [{ name: "名序规则链", extensions: ["nsq"] }],
+      title: t("导出规则链"),
+      defaultPath: `${t("规则链-{stamp}.nsq", { stamp })}`,
+      filters: [{ name: t("名序规则链"), extensions: ["nsq"] }],
     });
     if (!path) return;
     try {
       const name = path.split(/[\\/]/).pop()!.replace(/\.nsq$/i, "");
       const text = await api.exportChain(config, name);
       await api.writeTextFile(path, text);
-      notify("ok", `已导出到 ${path}`);
+      notify("ok", t("已导出到 {path}", { path }));
     } catch (e) {
       notify("err", String(e));
     }
@@ -474,9 +479,12 @@ export default function App() {
           readMedia,
         });
         if (found.length === 0) {
-          notify("warn", "这个位置没有找到文件，检查一下是否勾选了「包含子文件夹」");
+          notify(
+            "warn",
+            t("这个位置没有找到文件，检查一下是否勾选了「包含子文件夹」"),
+          );
         } else {
-          notify("ok", `已添加 ${found.length} 个文件`);
+          notify("ok", t("已添加 {n} 个文件", { n: found.length }));
         }
         setRoots((prev) => Array.from(new Set([...prev, ...paths])));
         setEntries((prev) => mergeEntries(prev, found));
@@ -501,11 +509,11 @@ export default function App() {
           foldersSelf: true,
         });
         if (found.length === 0) {
-          notify("warn", "这个文件夹加不进来，可能已经没有访问权限");
+          notify("warn", t("这个文件夹加不进来，可能已经没有访问权限"));
           return;
         }
         setEntries((prev) => mergeEntries(prev, found));
-        notify("ok", `已把文件夹「${found[0].name}」本身加入列表`);
+        notify("ok", t("已把文件夹「{name}」本身加入列表", { name: found[0].name }));
       } catch (e) {
         notify("err", String(e));
       } finally {
@@ -553,7 +561,12 @@ export default function App() {
       setInterrupted(list);
       if (list.length > 0) {
         const n = list.reduce((s, b) => s + b.pending.length, 0);
-        notify("warn", `上次有 ${n} 个文件卡在临时名上，去「执行选项」里可以恢复原名`);
+        notify(
+          "warn",
+          t("上次有 {n} 个文件卡在临时名上，去「执行选项」里可以恢复原名", {
+            n,
+          }),
+        );
       }
     } catch {
       /* 日志不可用时静默 */
@@ -782,7 +795,7 @@ export default function App() {
       if (!go) return;
     }
     setBusy(true);
-    setProgress({ done: 0, total: plan.executable * 2, phase: "准备" });
+    setProgress({ done: 0, total: plan.executable * 2, phase: t("准备") });
     try {
       const r = await api.executePlan(plan.ops, false);
       const failedIds = new Set(r.results.filter((x) => !x.ok).map((x) => x.id));
@@ -803,10 +816,10 @@ export default function App() {
       const firstErr = r.results.find((x) => !x.ok);
       notify(
         r.failed > 0 ? "warn" : "ok",
-        `成功 ${r.succeeded} 个` +
-          (r.failed ? `，失败 ${r.failed} 个` : "") +
-          (r.skipped ? `，跳过 ${r.skipped} 个` : "") +
-          (firstErr?.hint ? `（${firstErr.hint}）` : ""),
+        t("成功 {n} 个", { n: r.succeeded }) +
+          (r.failed ? t("，失败 {n} 个", { n: r.failed }) : "") +
+          (r.skipped ? t("，跳过 {n} 个", { n: r.skipped }) : "") +
+          (firstErr?.hint ? t("（{hint}）", { hint: firstErr.hint }) : ""),
       );
       // 改完名原地更新路径，不重扫：重扫会丢掉手动排序和排除勾选，大目录还要等几秒。
       // 只有成功的结果参与映射，失败的文件路径保持原样（它确实没改名）
@@ -829,8 +842,8 @@ export default function App() {
         const r = await api.undoBatch(batchId);
         notify(
           r.failed > 0 ? "warn" : "ok",
-          `已撤销：还原 ${r.succeeded} 个` +
-            (r.failed ? `，失败 ${r.failed} 个` : ""),
+          t("已撤销：还原 {n} 个", { n: r.succeeded }) +
+            (r.failed ? t("，失败 {n} 个", { n: r.failed }) : ""),
         );
         // 撤销同样原地回写（结果里的 from/to 已经是「新名 → 旧名」的方向）。
         // 不重扫的理由和执行时一样：保住手动排序和排除勾选。
@@ -852,7 +865,7 @@ export default function App() {
   const retry = useCallback(async () => {
     if (failedOps.length === 0 || busy) return;
     setBusy(true);
-    setProgress({ done: 0, total: failedOps.length * 2, phase: "重试" });
+    setProgress({ done: 0, total: failedOps.length * 2, phase: t("重试") });
     try {
       const r = await api.retryFailed(failedOps);
       const stillFailed = r.results.filter((x) => !x.ok);
@@ -862,8 +875,11 @@ export default function App() {
       notify(
         r.failed > 0 ? "warn" : "ok",
         r.failed > 0
-          ? `重试：成功 ${r.succeeded} 个，仍有 ${r.failed} 个没成功`
-          : `重试成功，${r.succeeded} 个都改好了`,
+          ? t("重试：成功 {ok} 个，仍有 {bad} 个没成功", {
+              ok: r.succeeded,
+              bad: r.failed,
+            })
+          : t("重试成功，{n} 个都改好了", { n: r.succeeded }),
       );
       // 同上：重试成功的那些也要把新路径写回列表
       setEntries((prev) => applyRenamed(prev, r.results));
@@ -889,8 +905,10 @@ export default function App() {
         const r = await api.recoverBatch(batchId);
         notify(
           r.failed > 0 ? "warn" : "ok",
-          `已恢复：原名还原 ${r.succeeded} 个` +
-            (r.failed ? `，${r.failed} 个没能还原（文件可能已被移动）` : ""),
+          t("已恢复：原名还原 {n} 个", { n: r.succeeded }) +
+            (r.failed
+              ? t("，{n} 个没能还原（文件可能已被移动）", { n: r.failed })
+              : ""),
         );
         // 恢复也是「原地回写」：崩溃后列表里存的是临时名（.rnm-*），
         // 映射表会把 临时名 → 原名 一起收掉，不需要重扫
@@ -966,7 +984,7 @@ export default function App() {
         ...c.groups,
         {
           id,
-          name: `分组 ${c.groups.length + 1}`,
+          name: t("分组 {n}", { n: c.groups.length + 1 }),
           enabled: true,
           filter: emptyFilter(),
         },
@@ -1015,14 +1033,14 @@ export default function App() {
       excluded: [],
     }));
     setOpenIds(new Set());
-    notify("ok", `已套用预设「${p.name}」`);
+    notify("ok", t("已套用预设「{name}」", { name: t(p.name) }));
   };
 
   const savePreset = (name: string, group: PresetGroup = "structure") => {
     const p: Preset = {
       id: `u${Date.now().toString(36)}`,
       name,
-      hint: `${config.rules.length} 条规则`,
+      hint: t("{n} 条规则", { n: config.rules.length }),
       group,
       rules: cloneRules(config.rules),
       builtin: false,
@@ -1030,7 +1048,7 @@ export default function App() {
     const next = [p, ...presets];
     setPresets(next);
     savePresets(next);
-    notify("ok", `已保存预设「${name}」`);
+    notify("ok", t("已保存预设「{name}」", { name }));
   };
 
   const deletePreset = (id: string) => {
@@ -1071,7 +1089,7 @@ export default function App() {
   );
 
   const pickFiles = async () => {
-    const sel = await open({ multiple: true, title: "选择文件" });
+    const sel = await open({ multiple: true, title: t("选择文件") });
     if (sel) await addPaths(Array.isArray(sel) ? sel : [sel]);
   };
 
@@ -1079,7 +1097,7 @@ export default function App() {
     const sel = await open({
       directory: true,
       multiple: true,
-      title: "选择文件夹",
+      title: t("选择文件夹"),
     });
     if (sel) await addPaths(Array.isArray(sel) ? sel : [sel]);
   };
@@ -1143,23 +1161,23 @@ export default function App() {
     // 手动顺序只在「添加顺序」下生效；当前若是其它排序，切过来才不让人白拖
     if (config.sortBy !== "original") {
       patchConfig({ sortBy: "original", descending: false });
-      notify("ok", "已切换为「添加顺序」，编号按你拖动的顺序分配");
+      notify("ok", t("已切换为「添加顺序」，编号按你拖动的顺序分配"));
     }
   };
 
   /* ---------------- 右键菜单 ---------------- */
 
   const openPath = (p: string) => {
-    api.openPath(p).catch((e) => notify("err", `打开失败：${String(e)}`));
+    api.openPath(p).catch((e) => notify("err", t("打开失败：{err}", { err: String(e) })));
   };
   const revealPath = (p: string) => {
-    api.revealPath(p).catch((e) => notify("err", `定位失败：${String(e)}`));
+    api.revealPath(p).catch((e) => notify("err", t("定位失败：{err}", { err: String(e) })));
   };
   const copyToClipboard = (text: string, label: string) => {
     api
       .copyText(text)
-      .then(() => notify("ok", `已复制${label}`))
-      .catch((e) => notify("err", `复制失败：${String(e)}`));
+      .then(() => notify("ok", t("已复制{label}", { label })))
+      .catch((e) => notify("err", t("复制失败：{err}", { err: String(e) })));
   };
   const setExcluded = (ids: number[], off: boolean) =>
     patchConfig({
@@ -1301,8 +1319,9 @@ export default function App() {
                 <span className="pane-meta">
                   {interrupted.length > 0 ? (
                     <b className="pane-warn">
-                      待恢复{" "}
-                      {interrupted.reduce((s, b) => s + b.pending.length, 0)}
+                      {t("待恢复 {n}", {
+                        n: interrupted.reduce((s, b) => s + b.pending.length, 0),
+                      })}
                     </b>
                   ) : plan ? (
                     t("可执行 {n}", { n: plan.executable })
@@ -1336,7 +1355,7 @@ export default function App() {
 
         <div
           className="splitter"
-          title="拖动调整宽度 · 双击恢复默认"
+          title={t("拖动调整宽度 · 双击恢复默认")}
           onPointerDown={startSplit}
           onDoubleClick={resetSplit}
         />
@@ -1375,7 +1394,7 @@ export default function App() {
               if (filterExcluded.has(id)) {
                 notify(
                   "warn",
-                  "这个文件由筛选条控制，要改它请调整预览上方的筛选",
+                  t("这个文件由筛选条控制，要改它请调整预览上方的筛选"),
                 );
                 return;
               }
@@ -1442,7 +1461,7 @@ export default function App() {
             className="btn ghost"
             onClick={() => lastBatch && undo(lastBatch)}
             disabled={!lastBatch || busy}
-            title="撤销最近一次执行"
+            title={t("撤销最近一次执行")}
           >
             <IconUndo size={15} />
             {t("撤销")}

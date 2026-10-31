@@ -36,6 +36,7 @@
 │   └── capabilities/default.json
 ├── src/                        # React 前端
 │   ├── App.tsx                 # 布局骨架 + 状态编排
+│   ├── i18n.ts                 # 语言表（中文原文即 key）+ t() 插值
 │   ├── theme.ts                # 主题系统（HSL 通道 + 持久化）
 │   ├── rules.ts                # 规则元数据：标签、分组、摘要、占位符与修饰符说明
 │   ├── presets.ts              # 内置预设 + 用户预设（localStorage）
@@ -52,6 +53,9 @@
 │       ├── SettingsDrawer.tsx  # 外观设置抽屉
 │       ├── Toast.tsx           # 操作反馈
 │       └── Icons.tsx           # 内联 SVG 图标
+├── scripts/                    # 发版工具链（Node，零依赖）
+│   ├── release.mjs             # 同步版本号 → 签名打包 → 收产物 → 写 latest.json
+│   └── latest.mjs              # 自动更新清单：按目录里实际存在的 .sig 汇总平台
 └── app-icon.png                # 图标源文件（1024²，squircle SVG 经 resvg 渲染）
 ```
 
@@ -536,6 +540,18 @@ cd crates/nameseq-cli && cargo test     # 命令行：8 个（含真跑一遍改
 执行→撤销→崩溃恢复；3 个预设语法验证）。命令行另有 4 个参数解析单测 + 4 个端到端（临时目录里
 真改名、真撤销、坏规则链的退出码）。
 
+### 多语言的写法
+
+gettext 风格：**简体中文原文就是 key**，`t("已添加 {n} 个文件", { n })` 直接写在渲染处，
+`src/i18n.ts` 里只有 `zhTW` / `en` / `ja` / `es` 四张表（中文即兜底，不单独建表）。
+
+这么写的好处是代码里读到的就是用户看到的话，不用在「文案」和「键名」之间来回查。代价是
+**漏词条不报错**——查不到就静默回落中文，界面上会混出半中半英。所以补了上面那三个测试守着。
+
+两条容易踩的约束：模块级的常量表（`ACTION_LABELS` 这类）**不能**在定义时调 `t()`，因为语言要
+运行时才确定，只能在渲染点包一层（`t(ACTION_LABELS[k])`）；数据表文件（`rules.ts` / `theme.ts` /
+`presets.ts` / `fileTypes.ts`）里的中文本身就是 key，属于测试白名单的例外。
+
 ### 前端纯函数测试（`npm run test:unit`）
 
 ```bash
@@ -550,6 +566,7 @@ npm run test:unit
 |---|---|
 | `renameApply.test.mjs` | 执行后「把新路径写回列表」：目录前缀替换的边界（`A` 不能波及 `A2`）、互换改名不能死循环、撤销日志里的临时名两跳要收成一跳 |
 | `report.test.mjs` | 报告文本格式：CSV 的 BOM / RFC 4180 转义 / 防公式注入，Markdown 的竖线与换行转义 |
+| `latest.test.mjs` | 自动更新清单：三平台齐全时各有一条、Windows 用 NSIS 而不是 msi、签名取自 `.sig`、`--mac-arch` 决定 darwin 键名、缺 `.sig` 的平台不算、notes 沿用旧清单 |
 
 ### 界面回归（`npm run test:ui`）
 
@@ -569,9 +586,15 @@ npm run test:ui
 | `execute.test.mjs` | 执行改名后列表原地更新：顺序不变、被排除的保持原名、不触发重新扫描 |
 | `report.test.mjs` | 导出报告接线：按钮可用、按扩展名分流、写出去的内容和预览逐行一致 |
 | `i18n.test.mjs` | 源码里每条 `t("…")` 在四张语言表里都有译法（纯静态，不开浏览器） |
+| `i18n-hardcoded.test.mjs` | 反向守门：源码和 JSX 里不许有漏包 `t()` 的中文文案（自带词法，能跳过注释、字符串、正则字面量） |
+| `i18n-english.test.mjs` | 真起一个英文界面，扫页面上残留的中文——静态测试看不见运行时才拼出来的文案 |
 
 `layout.test.mjs` 是这套的重点：窄窗口下按钮变形/遮挡历史上返工过五六次，现在用「全宽度枚举 +
 跨宽度比对」把它钉死——新增控件不用改测试，只要它变形就会被抓出来。
+
+i18n 三件套是一组，缺一不可：**查覆盖率**（每条 `t()` 都有译法）、**查漏包**（源码里不许有裸中文）、
+**查运行时**（英文界面上真的看不到中文）。原因很实在——词条缺失是**静默回落中文**的，不露键名、
+不报错，只有测试能把这种「翻了一半」拦在发版前。
 
 CI（`.github/workflows/ci.yml`）三个 job：Windows 上跑两个 crate 的 `cargo test`，Ubuntu 上跑
 `tsc --noEmit` + 前端纯函数测试 + `vite build`，Windows 上再跑一遍界面回归（布局测量受字体和
@@ -588,13 +611,21 @@ npm run release 0.6.0 -- --build --notes "修了中文排序"
 
 它会：① 同步 4 处版本号（只改版本那一行，不重新格式化 JSON，diff 干净）→
 ② 带签名私钥打包 → ③ 把安装包、`.sig` 和 `latest.json` 收进 `dist-release/`。
-上传那三个文件就能被老版本客户端「检查更新」看到。
+本机只出得了本平台的包，所以这份清单是单平台的；三平台齐全的那份由 Release CI 汇总生成。
+把 `dist-release/` 里的东西传上去就能被老版本客户端「检查更新」看到。
 
 更新服务器的地址用 `NSQ_UPDATE_BASE` 覆盖，默认按 GitHub Release 的路径拼接。
 
 ### 自动 Release（GitHub Actions）
 
-打一个 `vX.Y.Z` 的 tag 推上去，CI 会在三个平台**并行构建**，并把产物汇总到同一个 GitHub Release：
+打一个 `vX.Y.Z` 的 tag 推上去，CI 会在三个平台**并行构建**，再由一个汇总 job 建唯一一个 GitHub Release。
+分成两段是因为 `latest.json` 必须同时包含三个平台的条目，而三个构建 job 互相看不到对方的产物：
+
+```
+build（matrix: windows / macOS / linux）→ 各传一份 artifact
+        ↓ needs
+publish（ubuntu）→ 下载全部 artifact → 合并生成 latest.json → 建 Release 并上传
+```
 
 ```bash
 git tag v0.9.1 && git push origin v0.9.1
@@ -616,18 +647,19 @@ git tag -a v0.9.3 -m "改完名不再重扫目录；新增导出报告" && git p
 | macOS | `macos-latest` | `nameseq_X.Y.Z_aarch64.dmg`、`.app.tar.gz`、`.sig` |
 | Linux | `ubuntu-latest` | `nameseq_X.Y.Z_amd64.deb`、`.rpm`、`.AppImage`、裸二进制 `nameseq-linux-x64`、`.sig` |
 
-`latest.json`（自动更新清单）由 Windows 那次构建生成并上传；每个平台的 `.sig` 都带上了，
-客户端校验用。签名私钥走仓库 secret `TAURI_SIGNING_KEY`（= 本地 `.keys/nameseq.key` 全文），
+`latest.json`（自动更新清单）由汇总 job 用 `scripts/latest.mjs` 生成：它扫目录里实际存在的
+`.sig` 文件，谁在就给谁写一条，所以少一个平台也不会写出个指向空文件的条目。平台键名按 Tauri
+的约定拼（`windows-x86_64` / `darwin-aarch64` / `darwin-x86_64` / `linux-x86_64`），macOS 的
+架构由 `--mac-arch` 指定。本地 `npm run release` 也走同一个函数，只是目录里通常只有本平台产物，
+所以生成的是单平台清单——三平台齐全的那份由 CI 产出。
+
+签名私钥走仓库 secret `TAURI_SIGNING_KEY`（= 本地 `.keys/nameseq.key` 全文），
 workflow 里用 libsodium sealed-box 加密写入，CI 不会明文接触它。
 
-两个**已知限制**（不影响出包，影响体验）：
-
-1. **macOS 未签名/未公证**。GitHub 的 macOS runner 没有 Apple 开发者证书，出的 dmg 是未签名的，
-   用户首次打开会被 Gatekeeper 拦（右键 → 打开可绕过）。要消除需另配 Apple 证书 secret
-   （`APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` / `APPLE_API_KEY` / `APPLE_API_ISSUER`），
-   后续可补。
-2. **自动更新清单目前只含 Windows**。多平台各打各的包，没法直接合并进同一个 `latest.json`；
-   因此 Mac / Linux 用户能装能跑，但走自动更新还需一份合并后的多平台清单（单独活儿，可排期）。
+**已知限制**：**macOS 未签名/未公证**。GitHub 的 macOS runner 没有 Apple 开发者证书，出的 dmg
+是未签名的，用户首次打开会被 Gatekeeper 拦（右键 → 打开可绕过）。要消除需另配 Apple 证书 secret
+（`APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` / `APPLE_API_KEY` / `APPLE_API_ISSUER`），
+后续可补。
 
 ## Windows 构建产物
 
@@ -720,8 +752,13 @@ TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" npm run tauri build
 
 公钥写在 `tauri.conf.json` 的 `plugins.updater.pubkey` 里，`endpoints` 默认指向
 `https://github.com/yunyu697/nameseq/releases/latest/download/latest.json`——换成自己的地址即可。
-`latest.json` 的格式就是官方那套（版本、平台、url、signature），把 `bundle/` 里的
-安装包与同名 `.sig` 一起传上去，url 指向安装包、signature 填 `.sig` 的内容。
+`latest.json` 的格式就是官方那套（版本、平台、url、signature）。不用手写——`scripts/latest.mjs`
+扫目录里实际存在的 `.sig`，按平台各写一条：url 指向同名安装包，signature 就是 `.sig` 的内容。
+要单独生成时：
+
+```bash
+node scripts/latest.mjs --version 0.9.3 --dir dist-release --notes "发版说明"
+```
 
 客户端在设置抽屉最下面：「检查更新」→ 有新版就在后台下（带进度）→ 装完自动重启，
 Windows 上走 passive 安装（静默装，只留一个进度条）。签名不匹配的包会被拒装，
@@ -741,4 +778,4 @@ Windows 上走 passive 安装（静默装，只留一个进度条）。签名不
 
 - 在线试用：把引擎编成 WASM，浏览器里直接试规则，不用先下载安装
 - 大目录性能基准：5 万文件的扫描 / 规划耗时曲线，作为后续优化的基线
-- 多平台合并的 `latest.json`（见「自动 Release」里的已知限制）
+- macOS 签名与公证：目前出的包未签名，用户要右键绕过 Gatekeeper（见「自动 Release」）

@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeLatest } from "./latest.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = join(ROOT, "dist-release");
@@ -124,19 +125,15 @@ const base =
   process.env.NSQ_UPDATE_BASE?.replace(/\/$/, "") ??
   `https://github.com/yunyu697/nameseq/releases/download/v${version}`;
 
-const latest = {
+// 清单的生成逻辑放在 scripts/latest.mjs，CI 里汇总三平台时走的是同一份代码，
+// 免得本地和 CI 各写一遍文件名/URL 规则、日后悄悄走偏。
+const { latest, used, missing } = writeLatest({
+  dir: OUT_DIR,
   version,
   notes,
-  pub_date: new Date().toISOString(),
-  platforms: {
-    "windows-x86_64": {
-      signature: readFileSync(sigFile, "utf8").trim(),
-      // 中文文件名在 URL 里要编码，否则某些 CDN 会 404
-      url: `${base}/${encodeURIComponent(setupName)}`,
-    },
-  },
-};
-writeFileSync(join(OUT_DIR, "latest.json"), `${JSON.stringify(latest, null, 2)}\n`);
+  base,
+  macArch: "aarch64",
+});
 
 console.log(`
 ✓ ${version} 打包完成
@@ -146,9 +143,16 @@ console.log(`
   ${setupName}.sig
   latest.json
 
+清单里的平台：
+${used.map((u) => `  · ${u}`).join("\n") || "  （无）"}
+${missing.length ? `未产出的平台（本地只装了 ${process.platform} 工具链属正常）：\n${missing.map((m) => `  ! ${m}`).join("\n")}` : ""}
+
 发布步骤：
-  1. 把 dist-release/ 里的三个文件传到更新服务器
+  1. 把 dist-release/ 里的产物传到更新服务器
   2. 确认 ${base}/${setupName} 能下载
   3. 更新服务器上的 latest.json 换成本次生成的这份
   4. 老版本客户端「检查更新」就会看到 ${version}
+
+注意：本地只能构建当前平台的包，生成的 latest.json 只有 ${Object.keys(latest.platforms).join(" / ") || "空"}。
+多平台完整清单由 Release CI 汇总（.github/workflows/release.yml 的 publish job）。
 `);

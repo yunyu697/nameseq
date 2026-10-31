@@ -301,15 +301,15 @@ export default function PreviewTable({
     <div className="table">
       <div className="table-tools">
         <div className="tabs">
-          {tabs.map((t) => (
+          {tabs.map((tabItem) => (
             <button
-              key={t.id}
-              className={`tab ${tab === t.id ? "on" : ""}`}
-              onClick={() => setTab(t.id)}
-              disabled={t.n === 0 && t.id !== "all"}
+              key={tabItem.id}
+              className={`tab ${tab === tabItem.id ? "on" : ""}`}
+              onClick={() => setTab(tabItem.id)}
+              disabled={tabItem.n === 0 && tabItem.id !== "all"}
             >
-              {t.label}
-              <i>{t.n}</i>
+              {t(tabItem.label)}
+              <i>{tabItem.n}</i>
             </button>
           ))}
         </div>
@@ -317,12 +317,16 @@ export default function PreviewTable({
           <IconSearch />
           <input
             value={q}
-            placeholder="搜索文件名"
+            placeholder={t("搜索文件名")}
             spellCheck={false}
             onChange={(e) => setQ(e.target.value)}
           />
           {q && (
-            <button className="search-clear" onClick={() => setQ("")} title="清空">
+            <button
+              className="search-clear"
+              onClick={() => setQ("")}
+              title={t("清空")}
+            >
               <IconX size={12} />
             </button>
           )}
@@ -331,23 +335,23 @@ export default function PreviewTable({
 
       <div className="thead">
         <span />
-        <span>原文件名</span>
+        <span>{t("原文件名")}</span>
         <span />
-        <span>新文件名</span>
-        <span>状态</span>
+        <span>{t("新文件名")}</span>
+        <span>{t("状态")}</span>
       </div>
 
       {rows.length === 0 ? (
         <div className="table-empty">
           {ops.length === 0 ? (
             <>
-              <p>还没有文件</p>
-              <p className="hint">在左边「文件」里拖入文件或文件夹</p>
+              <p>{t("还没有文件")}</p>
+              <p className="hint">{t("在左边「文件」里拖入文件或文件夹")}</p>
             </>
           ) : (
             <>
-              <p>没有匹配的文件</p>
-              <p className="hint">换个关键词，或切回「全部」</p>
+              <p>{t("没有匹配的文件")}</p>
+              <p className="hint">{t("换个关键词，或切回「全部」")}</p>
             </>
           )}
         </div>
@@ -453,7 +457,9 @@ export default function PreviewTable({
           }}
         >
           {menuTargets.length > 1 && (
-            <div className="ctx-label">已选 {menuTargets.length} 行</div>
+            <div className="ctx-label">
+              {t("已选 {n} 行", { n: menuTargets.length })}
+            </div>
           )}
           {menuTargets.length === 1 && (
             <>
@@ -461,7 +467,7 @@ export default function PreviewTable({
                 className="ctx-item"
                 onClick={() => runMenu(onOpen, menu.op.from)}
               >
-                打开文件
+                {t("打开文件")}
               </button>
               <button
                 className="ctx-item"
@@ -469,32 +475,32 @@ export default function PreviewTable({
                   runMenu(onReveal, menu.op.from)
                 }
               >
-                在资源管理器中显示
+                {t("在资源管理器中显示")}
               </button>
               <div className="ctx-sep" />
               <button
                 className="ctx-item"
                 onClick={() =>
-                  runMenu(onCopy, menu.op.oldName, "原文件名")
+                  runMenu(onCopy, menu.op.oldName, t("原文件名"))
                 }
               >
-                复制原文件名
+                {t("复制原文件名")}
               </button>
               <button
                 className="ctx-item"
                 onClick={() =>
-                  runMenu(onCopy, menu.op.newName, "新文件名")
+                  runMenu(onCopy, menu.op.newName, t("新文件名"))
                 }
               >
-                复制新文件名
+                {t("复制新文件名")}
               </button>
               <button
                 className="ctx-item"
                 onClick={() =>
-                  runMenu(onCopy, menu.op.from, "完整路径")
+                  runMenu(onCopy, menu.op.from, t("完整路径"))
                 }
               >
-                复制完整路径
+                {t("复制完整路径")}
               </button>
             </>
           )}
@@ -506,11 +512,11 @@ export default function PreviewTable({
                   runMenu(
                     onCopy,
                     menuTargets.map((o) => o.oldName).join("\r\n") ,
-                    `${menuTargets.length} 个文件名` ,
+                    t("{n} 个文件名", { n: menuTargets.length }) ,
                   )
                 }
               >
-                复制 {menuTargets.length} 个文件名
+                {t("复制 {n} 个文件名", { n: menuTargets.length })}
               </button>
               <button
                 className="ctx-item"
@@ -518,11 +524,11 @@ export default function PreviewTable({
                   runMenu(
                     onCopy,
                     menuTargets.map((o) => o.from).join("\r\n") ,
-                    `${menuTargets.length} 个完整路径` ,
+                    t("{n} 个完整路径", { n: menuTargets.length }) ,
                   )
                 }
               >
-                复制 {menuTargets.length} 个完整路径
+                {t("复制 {n} 个完整路径", { n: menuTargets.length })}
               </button>
             </>
           )}

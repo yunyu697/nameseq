@@ -11,6 +11,7 @@ import {
   summarizeRule,
   type TokenHint,
 } from "../rules";
+import { t } from "../i18n";
 import type {
   Action,
   CaseMode,
@@ -41,24 +42,24 @@ function TokenRow({
 }: {
   label: string;
   tokens: TokenHint[];
-  onHover: (t: TokenHint) => void;
-  onPick: (t: TokenHint) => void;
+  onHover: (h: TokenHint) => void;
+  onPick: (h: TokenHint) => void;
 }) {
   return (
     <div className="tok-row">
-      <span className="tok-label">{label}</span>
+      <span className="tok-label">{t(label)}</span>
       <div className="tok-items">
-        {tokens.map((t) => (
+        {tokens.map((h) => (
           <button
-            key={t.token}
+            key={h.token}
             type="button"
             className="tok"
-            onMouseEnter={() => onHover(t)}
-            onFocus={() => onHover(t)}
-            onClick={() => onPick(t)}
-            title={`${t.label} · ${t.desc}`}
+            onMouseEnter={() => onHover(h)}
+            onFocus={() => onHover(h)}
+            onClick={() => onPick(h)}
+            title={`${t(h.label)} · ${t(h.desc)}`}
           >
-            {t.token}
+            {h.token}
           </button>
         ))}
       </div>
@@ -72,15 +73,15 @@ function HintBar({ hint }: { hint: TokenHint | null }) {
       {hint ? (
         <>
           <code>{hint.token}</code>
-          <b>{hint.label}</b>
-          <span className="tok-desc">{hint.desc}</span>
+          <b>{t(hint.label)}</b>
+          <span className="tok-desc">{t(hint.desc)}</span>
           <em>
-            例 <i>{hint.example}</i>
+            {t("例")} <i>{t(hint.example)}</i>
           </em>
         </>
       ) : (
         <span className="tok-desc dim">
-          把鼠标移到上面的标签上可以看它做什么，点一下会插到光标位置。
+          {t("把鼠标移到上面的标签上可以看它做什么，点一下会插到光标位置。")}
         </span>
       )}
     </div>
@@ -156,10 +157,10 @@ export default function RuleEditor({
     });
   };
 
-  const pickPlaceholder = (t: TokenHint) => {
+  const pickPlaceholder = (h: TokenHint) => {
     const el = tplRef.current;
     const cur = a.kind === "template" ? a.template : "";
-    const { next, caret } = insertAtCursor(el, cur, t.token);
+    const { next, caret } = insertAtCursor(el, cur, h.token);
     patch({ template: next });
     restore(el, caret);
   };
@@ -169,7 +170,7 @@ export default function RuleEditor({
    * 光标紧跟在 } 后面时插到它前面，正好修饰刚点过的占位符；
    * 否则补一个 {name|xxx} 出来，避免用户点出 `|lower` 这种纯文本。
    */
-  const pickModifier = (t: TokenHint) => {
+  const pickModifier = (h: TokenHint) => {
     const el = tplRef.current;
     const cur = a.kind === "template" ? a.template : "";
     const start = el?.selectionStart ?? cur.length;
@@ -179,10 +180,10 @@ export default function RuleEditor({
     let caret: number;
 
     if (start === end && before.endsWith("}")) {
-      next = cur.slice(0, start - 1) + t.token + cur.slice(start - 1);
-      caret = start + t.token.length;
+      next = cur.slice(0, start - 1) + h.token + cur.slice(start - 1);
+      caret = start + h.token.length;
     } else {
-      const chunk = `{name${t.token}}`;
+      const chunk = `{name${h.token}}`;
       next = cur.slice(0, start) + chunk + cur.slice(end);
       caret = start + chunk.length;
     }
@@ -190,9 +191,9 @@ export default function RuleEditor({
     restore(el, caret);
   };
 
-  const pickFormat = (t: TokenHint) => {
-    patch({ format: t.token });
-    restore(fmtRef.current, t.token.length);
+  const pickFormat = (h: TokenHint) => {
+    patch({ format: h.token });
+    restore(fmtRef.current, h.token.length);
   };
 
   const tags = ruleTags(a);
@@ -203,7 +204,7 @@ export default function RuleEditor({
         return (
           <>
             <label className="fld">
-              <span>模板</span>
+              <span>{t("模板")}</span>
               <input
                 ref={tplRef}
                 className="mono"
@@ -236,7 +237,7 @@ export default function RuleEditor({
           <>
             <div className="grid2">
               <label className="fld">
-                <span>查找</span>
+                <span>{t("查找")}</span>
                 <input
                   className="mono"
                   value={a.find}
@@ -245,7 +246,7 @@ export default function RuleEditor({
                 />
               </label>
               <label className="fld">
-                <span>替换为</span>
+                <span>{t("替换为")}</span>
                 <input
                   className="mono"
                   value={a.with}
@@ -261,7 +262,7 @@ export default function RuleEditor({
                   checked={a.regex}
                   onChange={(e) => patch({ regex: e.target.checked })}
                 />
-                正则表达式
+                {t("正则表达式")}
               </label>
               <label className="chk">
                 <input
@@ -269,13 +270,13 @@ export default function RuleEditor({
                   checked={a.caseSensitive}
                   onChange={(e) => patch({ caseSensitive: e.target.checked })}
                 />
-                区分大小写
+                {t("区分大小写")}
               </label>
             </div>
             {a.regex && (
               <p className="tip warn">
-                捕获组请写 {"${1}"} 形式。写成 <code>$1_</code> 会被当成组名{" "}
-                <code>$1_</code>，静默变成空字符串。
+                {t("捕获组请写")} <code>{"${1}"}</code> {t("形式。写成")}{" "}
+                <code>$1_</code> {t("会被当成组名，静默变成空字符串。")}
               </p>
             )}
           </>
@@ -285,7 +286,7 @@ export default function RuleEditor({
         return (
           <>
             <label className="fld">
-              <span>要删除的内容</span>
+              <span>{t("要删除的内容")}</span>
               <input
                 className="mono"
                 value={a.pattern}
@@ -300,7 +301,7 @@ export default function RuleEditor({
                   checked={a.regex}
                   onChange={(e) => patch({ regex: e.target.checked })}
                 />
-                正则表达式
+                {t("正则表达式")}
               </label>
               <label className="chk">
                 <input
@@ -308,7 +309,7 @@ export default function RuleEditor({
                   checked={a.caseSensitive}
                   onChange={(e) => patch({ caseSensitive: e.target.checked })}
                 />
-                区分大小写
+                {t("区分大小写")}
               </label>
             </div>
           </>
@@ -317,14 +318,14 @@ export default function RuleEditor({
       case "case":
         return (
           <label className="fld">
-            <span>转换方式</span>
+            <span>{t("转换方式")}</span>
             <select
               value={a.mode}
               onChange={(e) => patch({ mode: e.target.value as CaseMode })}
             >
               {(Object.keys(CASE_LABELS) as CaseMode[]).map((m) => (
                 <option key={m} value={m}>
-                  {CASE_LABELS[m]}
+                  {t(CASE_LABELS[m])}
                 </option>
               ))}
             </select>
@@ -336,7 +337,7 @@ export default function RuleEditor({
           <>
             <div className="grid3">
               <label className="fld">
-                <span>起始值</span>
+                <span>{t("起始值")}</span>
                 <Num
                   value={a.start}
                   min={0}
@@ -344,7 +345,7 @@ export default function RuleEditor({
                 />
               </label>
               <label className="fld">
-                <span>步长</span>
+                <span>{t("步长")}</span>
                 <Num
                   value={a.step}
                   min={1}
@@ -352,7 +353,7 @@ export default function RuleEditor({
                 />
               </label>
               <label className="fld">
-                <span>位数</span>
+                <span>{t("位数")}</span>
                 <Num
                   value={a.width}
                   min={1}
@@ -362,23 +363,23 @@ export default function RuleEditor({
             </div>
             <div className="grid2">
               <label className="fld">
-                <span>编号形式</span>
+                <span>{t("编号形式")}</span>
                 <select
                   value={a.base}
                   onChange={(e) =>
                     patch({ base: e.target.value as CounterBase })
                   }
                 >
-                  <option value="decimal">数字 1 2 3</option>
-                  <option value="alphaUpper">字母 A B C</option>
-                  <option value="alphaLower">字母 a b c</option>
+                  <option value="decimal">{t("数字 1 2 3")}</option>
+                  <option value="alphaUpper">{t("字母 A B C")}</option>
+                  <option value="alphaLower">{t("字母 a b c")}</option>
                 </select>
               </label>
               <label className="fld">
-                <span>插入位置</span>
+                <span>{t("插入位置")}</span>
                 <Num
                   value={a.at}
-                  placeholder="末尾"
+                  placeholder={t("末尾")}
                   width={80}
                   onChange={(v) => patch({ at: v })}
                 />
@@ -390,7 +391,7 @@ export default function RuleEditor({
                 checked={a.perFolder}
                 onChange={(e) => patch({ perFolder: e.target.checked })}
               />
-              每个目录重新从起始值计数
+              {t("每个目录重新从起始值计数")}
             </label>
           </>
         );
@@ -399,12 +400,14 @@ export default function RuleEditor({
       case "suffix":
         return (
           <label className="fld">
-            <span>{a.kind === "prefix" ? "前缀内容" : "后缀内容"}</span>
+            <span>{a.kind === "prefix" ? t("前缀内容") : t("后缀内容")}</span>
             <input
               className="mono"
               value={a.text}
               onChange={(e) => patch({ text: e.target.value })}
-              placeholder={a.kind === "prefix" ? "放在最前面" : "追加到最后"}
+              placeholder={
+                a.kind === "prefix" ? t("放在最前面") : t("追加到最后")
+              }
             />
           </label>
         );
@@ -413,7 +416,7 @@ export default function RuleEditor({
         return (
           <div className="grid2">
             <label className="fld">
-              <span>文本</span>
+              <span>{t("文本")}</span>
               <input
                 className="mono"
                 value={a.text}
@@ -421,7 +424,7 @@ export default function RuleEditor({
               />
             </label>
             <label className="fld">
-              <span>第几个字符后</span>
+              <span>{t("第几个字符后")}</span>
               <Num
                 value={a.at}
                 min={0}
@@ -434,12 +437,12 @@ export default function RuleEditor({
       case "trim":
         return (
           <label className="fld">
-            <span>要去掉的字符</span>
+            <span>{t("要去掉的字符")}</span>
             <input
               className="mono"
               value={a.chars}
               onChange={(e) => patch({ chars: e.target.value })}
-              placeholder="留空 = 去掉首尾空白"
+              placeholder={t("留空 = 去掉首尾空白")}
             />
           </label>
         );
@@ -453,7 +456,7 @@ export default function RuleEditor({
                 checked={a.fullwidth}
                 onChange={(e) => patch({ fullwidth: e.target.checked })}
               />
-              全角转半角
+              {t("全角转半角")}
             </label>
             <label className="chk">
               <input
@@ -461,7 +464,7 @@ export default function RuleEditor({
                 checked={a.diacritics}
                 onChange={(e) => patch({ diacritics: e.target.checked })}
               />
-              去音标 é→e
+              {t("去音标 é→e")}
             </label>
             <label className="chk">
               <input
@@ -469,7 +472,7 @@ export default function RuleEditor({
                 checked={a.emoji}
                 onChange={(e) => patch({ emoji: e.target.checked })}
               />
-              去 emoji
+              {t("去 emoji")}
             </label>
             <label className="chk">
               <input
@@ -477,7 +480,7 @@ export default function RuleEditor({
                 checked={a.collapseSpace}
                 onChange={(e) => patch({ collapseSpace: e.target.checked })}
               />
-              合并连续空格
+              {t("合并连续空格")}
             </label>
           </div>
         );
@@ -487,30 +490,30 @@ export default function RuleEditor({
           <>
             <div className="grid2">
               <label className="fld">
-                <span>时间来源</span>
+                <span>{t("时间来源")}</span>
                 <select
                   value={a.source}
                   onChange={(e) =>
                     patch({ source: e.target.value as DateSource })
                   }
                 >
-                  <option value="modified">文件修改时间</option>
-                  <option value="exif">照片拍摄时间 (EXIF)</option>
-                  <option value="now">当前时间</option>
+                  <option value="modified">{t("文件修改时间")}</option>
+                  <option value="exif">{t("照片拍摄时间 (EXIF)")}</option>
+                  <option value="now">{t("当前时间")}</option>
                 </select>
               </label>
               <label className="fld">
-                <span>插入位置</span>
+                <span>{t("插入位置")}</span>
                 <Num
                   value={a.at}
-                  placeholder="末尾"
+                  placeholder={t("末尾")}
                   width={80}
                   onChange={(v) => patch({ at: v })}
                 />
               </label>
             </div>
             <label className="fld">
-              <span>时间格式</span>
+              <span>{t("时间格式")}</span>
               <input
                 ref={fmtRef}
                 className="mono"
@@ -534,7 +537,7 @@ export default function RuleEditor({
       case "setExt":
         return (
           <label className="fld short">
-            <span>新扩展名（不写点）</span>
+            <span>{t("新扩展名（不写点）")}</span>
             <input
               className="mono"
               value={a.ext}
@@ -547,7 +550,7 @@ export default function RuleEditor({
         return (
           <div className="grid2">
             <label className="fld">
-              <span>保留字符数</span>
+              <span>{t("保留字符数")}</span>
               <Num
                 value={a.maxChars}
                 min={1}
@@ -560,7 +563,7 @@ export default function RuleEditor({
                 checked={a.fromEnd}
                 onChange={(e) => patch({ fromEnd: e.target.checked })}
               />
-              从末尾开始截取
+              {t("从末尾开始截取")}
             </label>
           </div>
         );
@@ -568,15 +571,19 @@ export default function RuleEditor({
       case "chineseNumber":
         return (
           <label className="fld">
-            <span>转换方向</span>
+            <span>{t("转换方向")}</span>
             <select
               value={a.mode}
               onChange={(e) =>
                 patch({ mode: e.target.value as ChineseNumberMode })
               }
             >
-              <option value="toArabic">中文 → 数字（第十二章 → 第12章）</option>
-              <option value="toChinese">数字 → 中文（第12章 → 第十二章）</option>
+              <option value="toArabic">
+                {t("中文 → 数字（第十二章 → 第12章）")}
+              </option>
+              <option value="toChinese">
+                {t("数字 → 中文（第12章 → 第十二章）")}
+              </option>
             </select>
           </label>
         );
@@ -594,7 +601,7 @@ export default function RuleEditor({
           <input
             type="checkbox"
             checked={rule.enabled}
-            title="启用 / 停用这条规则"
+            title={t("启用 / 停用这条规则")}
             onChange={(e) => onChange({ ...rule, enabled: e.target.checked })}
           />
         </label>
@@ -607,23 +614,25 @@ export default function RuleEditor({
             style={{ ["--gc" as string]: groupHue(myGroup.id, groups) }}
             title={
               groupOff
-                ? `分组「${myGroup.name}」已停用，这条规则不会生效`
-                : `属于分组「${myGroup.name}」`
+                ? t("分组「{name}」已停用，这条规则不会生效", {
+                    name: myGroup.name,
+                  })
+                : t("属于分组「{name}」", { name: myGroup.name })
             }
           >
             <i className="dot" />
             {myGroup.name}
-            {groupOff && <em>已停用</em>}
+            {groupOff && <em>{t("已停用")}</em>}
           </span>
         )}
 
-        <span className="rule-kind">{ACTION_LABELS[a.kind]}</span>
+        <span className="rule-kind">{t(ACTION_LABELS[a.kind])}</span>
 
         <span className="rule-sum" title={summarizeRule(a)}>
           {summarizeRule(a)}
-          {tags.map((t) => (
-            <em key={t} className="tag">
-              {t}
+          {tags.map((tag) => (
+            <em key={tag} className="tag">
+              {tag}
             </em>
           ))}
         </span>
@@ -632,7 +641,7 @@ export default function RuleEditor({
           <button
             className="icon-btn sm"
             disabled={!canUp}
-            title="上移"
+            title={t("上移")}
             onClick={() => onMove(-1)}
           >
             <IconArrowUp />
@@ -640,14 +649,14 @@ export default function RuleEditor({
           <button
             className="icon-btn sm"
             disabled={!canDown}
-            title="下移"
+            title={t("下移")}
             onClick={() => onMove(1)}
           >
             <IconArrowDown />
           </button>
           <button
             className="icon-btn sm danger"
-            title="删除这条规则"
+            title={t("删除这条规则")}
             onClick={onRemove}
           >
             <IconTrash />
@@ -665,7 +674,7 @@ export default function RuleEditor({
 
             <div className="rule-foot">
               <label className="fld inline-short">
-                <span>作用于</span>
+                <span>{t("作用于")}</span>
                 <select
                   value={a.kind === "setExt" ? "ext" : rule.target}
                   disabled={a.kind === "setExt"}
@@ -673,8 +682,8 @@ export default function RuleEditor({
                     onChange({ ...rule, target: e.target.value as Target })
                   }
                 >
-                  <option value="stem">主名</option>
-                  <option value="ext">扩展名</option>
+                  <option value="stem">{t("主名")}</option>
+                  <option value="ext">{t("扩展名")}</option>
                 </select>
               </label>
               <button
@@ -682,10 +691,10 @@ export default function RuleEditor({
                 onClick={() => setShowFilter((v) => !v)}
               >
                 <IconFilter />
-                条件{filterOn ? " · 已设" : ""}
+                {filterOn ? t("条件 · 已设") : t("条件")}
               </button>
               <label className="fld inline-short group-pick">
-                <span>分组</span>
+                <span>{t("分组")}</span>
                 <select
                   value={rule.group ?? ""}
                   onChange={(e) => {
@@ -694,13 +703,13 @@ export default function RuleEditor({
                     else onSetGroup(rule.id, v === "" ? null : v);
                   }}
                 >
-                  <option value="">不分组</option>
+                  <option value="">{t("不分组")}</option>
                   {groups.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.name}
                     </option>
                   ))}
-                  <option value="__new">+ 新建分组…</option>
+                  <option value="__new">{t("+ 新建分组…")}</option>
                 </select>
               </label>
             </div>

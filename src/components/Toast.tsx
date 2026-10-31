@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { t } from "../i18n";
 import { IconAlert, IconCheck, IconX } from "./Icons";
 
 export type ToastKind = "ok" | "warn" | "err";
@@ -22,11 +23,11 @@ export default function Toast({ toast, onClose }: Props) {
 
   useEffect(() => {
     if (!toast) return;
-    const t = window.setTimeout(
+    const timer = window.setTimeout(
       () => closeRef.current(),
       toast.kind === "ok" ? 3600 : 6500,
     );
-    return () => window.clearTimeout(t);
+    return () => window.clearTimeout(timer);
   }, [toast]);
 
   if (!toast) return null;
@@ -37,7 +38,7 @@ export default function Toast({ toast, onClose }: Props) {
         {toast.kind === "ok" ? <IconCheck size={15} /> : <IconAlert size={15} />}
       </span>
       <span className="toast-text">{toast.text}</span>
-      <button className="icon-btn sm" onClick={onClose} title="关闭">
+      <button className="icon-btn sm" onClick={onClose} title={t("关闭")}>
         <IconX size={12} />
       </button>
       <i className="toast-timer" />

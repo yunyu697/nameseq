@@ -309,8 +309,14 @@ function freePort() {
  * @param {number} [opts.width]  初始视口宽
  * @param {number} [opts.height] 初始视口高
  * @param {string} [opts.mock]   注入到页面最前面的脚本（mock.mjs 的 buildMockScript()）
+ * @param {string} [opts.lang]   钉死的界面语言（默认 zh-CN）；测英文界面时传 "en"
  */
-export async function launch({ width = 1280, height = 820, mock = "" } = {}) {
+export async function launch({
+  width = 1280,
+  height = 820,
+  mock = "",
+  lang = "zh-CN",
+} = {}) {
   const { createServer } = await import("vite");
   const server = await createServer({
     root: ROOT,
@@ -338,8 +344,8 @@ export async function launch({ width = 1280, height = 820, mock = "" } = {}) {
       // 界面语言：应用首次启动会跟随 navigator.language 选语言（i18n.ts）。
       // 不钉死的话，CI runner（en-US）上界面是英文、本机（zh-CN）上是中文，
       // 任何按中文文案定位元素的用例都会变成「只有 CI 挂」的玄学。
-      "--lang=zh-CN",
-      "--accept-lang=zh-CN",
+      `--lang=${lang}`,
+      `--accept-lang=${lang}`,
       "--no-sandbox",
       "--disable-dev-shm-usage",
       "--disable-gpu",
@@ -410,10 +416,10 @@ export async function launch({ width = 1280, height = 820, mock = "" } = {}) {
     source: `
       try {
         Object.defineProperty(navigator, "language", {
-          get: () => "zh-CN", configurable: true,
+          get: () => ${JSON.stringify(lang)}, configurable: true,
         });
         Object.defineProperty(navigator, "languages", {
-          get: () => ["zh-CN", "zh"], configurable: true,
+          get: () => [${JSON.stringify(lang)}], configurable: true,
         });
       } catch {}
     `,
