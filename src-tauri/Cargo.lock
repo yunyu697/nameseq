@@ -2321,7 +2321,7 @@ checksum = "13d2233c9842d08cfe13f9eac96e207ca6a2ea10b80259ebe8ad0268be27d2af"
 
 [[package]]
 name = "nameseq"
-version = "0.9.2"
+version = "0.9.3"
 dependencies = [
  "arboard",
  "renamer-core",

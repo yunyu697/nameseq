@@ -1,6 +1,6 @@
 [package]
 name = "nameseq-cli"
-version = "0.9.2"
+version = "0.9.3"
 edition = "2021"
 description = "名序的命令行前端：用同一份规则链在终端里批量改名"
 license = "MIT"
