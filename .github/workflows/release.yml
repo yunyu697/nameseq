@@ -90,10 +90,21 @@ jobs:
         id: notes
         shell: bash
         run: |
-          if [ "$(git cat-file -t "$GITHUB_REF_NAME")" = "tag" ]; then
+          # checkout 在 tag 事件下常常只把提交 sha 写进 refs/tags/<name>（轻量 ref），
+          # 注解标签对象本身没到本地——cat-file 于是返回 commit，标签消息就丢了。
+          # v0.9.3 就这么发出一份空说明，所以这里显式再拉一次真正的标签对象。
+          git fetch --force --no-recurse-submodules origin \
+            "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME" >/dev/null 2>&1 || true
+          kind=$(git cat-file -t "$GITHUB_REF_NAME" 2>/dev/null || echo none)
+          if [ "$kind" = "tag" ]; then
             msg=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
           else
             msg=$(git log -1 --format='%b' "$GITHUB_REF_NAME")
+            # 正文也空时退到标题，宁可带点工程噪音也别让更新提示一片空白
+            if [ -z "$(printf '%s' "$msg" | tr -d '[:space:]')" ]; then
+              msg=$(git log -1 --format='%s' "$GITHUB_REF_NAME")
+              echo "::warning::没读到注解标签的消息（cat-file=$kind），退回到提交标题"
+            fi
           fi
           # 压成单行：notes 要进 JSON，换行只会让更新提示更难读
           msg=$(printf '%s' "$msg" | tr '\n' ' ' | tr -s ' ' | sed 's/^ *//;s/ *$//')
@@ -211,10 +222,18 @@ jobs:
         id: notes
         shell: bash
         run: |
-          if [ "$(git cat-file -t "$GITHUB_REF_NAME")" = "tag" ]; then
+          # 同 build job：checkout 可能没带注解标签对象，先显式拉一次
+          git fetch --force --no-recurse-submodules origin \
+            "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME" >/dev/null 2>&1 || true
+          kind=$(git cat-file -t "$GITHUB_REF_NAME" 2>/dev/null || echo none)
+          if [ "$kind" = "tag" ]; then
             msg=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
           else
             msg=$(git log -1 --format='%b' "$GITHUB_REF_NAME")
+            if [ -z "$(printf '%s' "$msg" | tr -d '[:space:]')" ]; then
+              msg=$(git log -1 --format='%s' "$GITHUB_REF_NAME")
+              echo "::warning::没读到注解标签的消息（cat-file=$kind），退回到提交标题"
+            fi
           fi
           msg=$(printf '%s' "$msg" | tr '\n' ' ' | tr -s ' ' | sed 's/^ *//;s/ *$//')
           {
@@ -222,6 +241,7 @@ jobs:
             echo "$msg"
             echo '__NOTES_EOF__'
           } >> "$GITHUB_OUTPUT"
+          echo "发版说明：${msg:0:80}"
 
       - name: 合并生成多平台 latest.json
         shell: bash
