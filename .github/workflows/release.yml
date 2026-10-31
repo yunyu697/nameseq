@@ -113,9 +113,11 @@ jobs:
         if: matrix.platform == 'macos'
         run: npm run tauri build
 
+      # Linux 的 deb/rpm/AppImage 打包器要求包名以字母数字开头，不支持中文 productName，
+      # 因此用覆盖配置把 Linux 包名换成 nameseq（窗口标题不受影响，Windows/macOS 仍叫「名序」）
       - name: 构建 Linux 包（deb + rpm + AppImage）
         if: matrix.platform == 'linux'
-        run: npm run tauri build -- --bundles deb,rpm,appimage
+        run: npm run tauri build -- --config src-tauri/tauri.linux.conf.json
 
       # ---- 收集产物到 dist/，再统一上传 ----
       - name: 收集 Windows 产物

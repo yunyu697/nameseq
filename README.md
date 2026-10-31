@@ -507,7 +507,7 @@ git tag v0.9.0 && git push origin v0.9.0
 |---|---|---|
 | Windows | `windows-latest` | `名序_X.Y.Z_x64-setup.exe`（NSIS）、`名序_X.Y.Z_x64_zh-CN.msi`、`nameseq_X.Y.Z_x64_portable.zip`、以及对应 `.sig` |
 | macOS | `macos-latest` | `名序_X.Y.Z_aarch64.dmg`、`.app.tar.gz`、`.sig` |
-| Linux | `ubuntu-latest` | `名序_X.Y.Z_amd64.deb`、`.rpm`、`.AppImage`、裸二进制 `nameseq-linux-x64`、`.sig` |
+| Linux | `ubuntu-latest` | `nameseq_X.Y.Z_amd64.deb`、`.rpm`、`.AppImage`、裸二进制 `nameseq-linux-x64`、`.sig`（Linux 包名用 ASCII `nameseq`，因为 deb/rpm 打包器不支持中文包名） |
 
 `latest.json`（自动更新清单）由 Windows 那次构建生成并上传；每个平台的 `.sig` 都带上了，
 客户端校验用。签名私钥走仓库 secret `TAURI_SIGNING_KEY`（= 本地 `.keys/nameseq.key` 全文），
