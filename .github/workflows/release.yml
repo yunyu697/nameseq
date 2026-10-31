@@ -1,6 +1,10 @@
 name: Release
 
-# 打 tag（形如 v0.9.0）推送到仓库即自动构建 Windows 安装包、签名、建 GitHub Release 并生成最新版清单。
+# 打 tag（形如 v0.9.0）推送到仓库即自动在三个平台并行构建，并把产物汇总到同一个 GitHub Release：
+#   Windows → msi 安装包 + nsis exe 安装包 + 便携 zip
+#   macOS   → dmg 安装包（未签名，见下方说明）
+#   Linux   → deb + rpm + AppImage + 裸二进制
+# 自动更新签名（.sig）每个平台都生成；latest.json 仅由 Windows 产出（单平台更新清单，见下方说明）。
 on:
   push:
     tags:
@@ -16,8 +20,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    runs-on: windows-latest
+  build:
+    strategy:
+      # 任一平台失败就取消其余，避免发布半成品
+      fail-fast: true
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: macos
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    env:
+      # 自动更新签名私钥（仓库 secret，= 本地 .keys/nameseq.key 全文）。
+      # Windows 走 release.mjs 时会改成文件路径，其余平台直接用内容。
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +50,6 @@ jobs:
       - name: Rust 工具链
         uses: dtolnay/rust-toolchain@stable
 
-      # 缓存 crates 编译产物，避免每次全量重编
       - name: Rust 缓存
         uses: Swatinem/rust-cache@v2
         with:
@@ -39,7 +58,15 @@ jobs:
             crates/nameseq-cli
             src-tauri
 
-      - name: 安装依赖
+      # Linux 需要一堆系统库才能编译 Tauri；rpm 用来打 rpm 包
+      - name: 安装 Linux 构建依赖
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev rpm libfuse2
+
+      - name: 安装前端依赖
         run: npm ci
 
       # 取出纯版本号（去掉 tag 前的 v），同步进四个版本文件；
@@ -52,27 +79,76 @@ jobs:
       - name: 对齐版本号到 tag
         run: npm run release ${{ steps.ver.outputs.version }}
 
-      # 发布前门禁：引擎与命令行单测不过就不构建
+      # 发布前门禁：引擎与命令行单测不过就不构建（挑 Linux 跑，Rust 引擎与平台无关）
       - name: 引擎测试
+        if: matrix.platform == 'linux'
         working-directory: crates/renamer-core
         run: cargo test
       - name: 命令行测试
+        if: matrix.platform == 'linux'
         working-directory: crates/nameseq-cli
         run: cargo test
 
-      # 构建 + 自动更新签名 + 建 Release + 上传 latest.json。
-      # TAURI_SIGNING_KEY 是仓库 secret，内容 = 本地 .keys/nameseq.key 的全部文本。
-      - name: 构建并发布
-        uses: tauri-apps/tauri-action@v0
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # ---- Windows：复用本地 release 脚本，产出 msi + nsis + 签名 + latest.json ----
+      - name: 写入签名私钥文件（Windows）
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          mkdir -p .keys
+          printf '%s' "$TAURI_SIGNING_KEY" > .keys/nameseq.key
+
+      - name: 构建 Windows 安装包 + 更新清单
+        if: matrix.platform == 'windows'
+        run: npm run release ${{ steps.ver.outputs.version }} -- --build
+
+      - name: 打包 Windows 便携 zip
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          VER=${{ steps.ver.outputs.version }}
+          tar -a -cf "dist-release/nameseq_${VER}_x64_portable.zip" -C src-tauri/target/release nameseq.exe
+
+      # ---- macOS / Linux：直接 tauri build，按平台产出对应包 ----
+      - name: 构建 macOS 包
+        if: matrix.platform == 'macos'
+        run: npm run tauri build
+
+      - name: 构建 Linux 包（deb + rpm + AppImage）
+        if: matrix.platform == 'linux'
+        run: npm run tauri build -- --bundles deb,rpm,appimage
+
+      # ---- 收集产物到 dist/，再统一上传 ----
+      - name: 收集 Windows 产物
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp dist-release/* dist/ 2>/dev/null || true
+
+      - name: 收集 macOS 产物
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          mkdir -p dist
+          find src-tauri/target/release/bundle -type f \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.sig" \) -exec cp {} dist/ \;
+
+      - name: 收集 Linux 产物
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          mkdir -p dist
+          find src-tauri/target/release/bundle -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" -o -name "*.sig" \) -exec cp {} dist/ \;
+          cp src-tauri/target/release/nameseq dist/nameseq-linux-x64 2>/dev/null || true
+
+      - name: 上传到 Release
+        uses: softprops/action-gh-release@v2
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "名序 ${{ github.ref_name }}"
-          releaseBody: "自动构建的 Windows 安装包（含自动更新签名）。详细更新说明见 latest.json。"
-          releaseDraft: false
+          tag_name: ${{ github.ref_name }}
+          name: "名序 ${{ github.ref_name }}"
+          body: "多平台自动构建：Windows（msi/exe/便携zip）、macOS（dmg）、Linux（deb/rpm/AppImage/二进制）。自动更新签名见各包同名 .sig；更新清单 latest.json 由 Windows 产出。"
+          draft: false
           prerelease: false
-          includeUpdater: true
-          updaterJsonPreferNsis: true
+          files: dist/*
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

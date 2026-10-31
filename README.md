@@ -495,6 +495,33 @@ npm run release 0.6.0 -- --build --notes "修了中文排序"
 
 更新服务器的地址用 `NSQ_UPDATE_BASE` 覆盖，默认按 GitHub Release 的路径拼接。
 
+### 自动 Release（GitHub Actions）
+
+打一个 `vX.Y.Z` 的 tag 推上去，CI 会在三个平台**并行构建**，并把产物汇总到同一个 GitHub Release：
+
+```bash
+git tag v0.9.0 && git push origin v0.9.0
+```
+
+| 平台 | runner | 产出 |
+|---|---|---|
+| Windows | `windows-latest` | `名序_X.Y.Z_x64-setup.exe`（NSIS）、`名序_X.Y.Z_x64_zh-CN.msi`、`nameseq_X.Y.Z_x64_portable.zip`、以及对应 `.sig` |
+| macOS | `macos-latest` | `名序_X.Y.Z_aarch64.dmg`、`.app.tar.gz`、`.sig` |
+| Linux | `ubuntu-latest` | `名序_X.Y.Z_amd64.deb`、`.rpm`、`.AppImage`、裸二进制 `nameseq-linux-x64`、`.sig` |
+
+`latest.json`（自动更新清单）由 Windows 那次构建生成并上传；每个平台的 `.sig` 都带上了，
+客户端校验用。签名私钥走仓库 secret `TAURI_SIGNING_KEY`（= 本地 `.keys/nameseq.key` 全文），
+workflow 里用 libsodium sealed-box 加密写入，CI 不会明文接触它。
+
+两个**已知限制**（不影响出包，影响体验）：
+
+1. **macOS 未签名/未公证**。GitHub 的 macOS runner 没有 Apple 开发者证书，出的 dmg 是未签名的，
+   用户首次打开会被 Gatekeeper 拦（右键 → 打开可绕过）。要消除需另配 Apple 证书 secret
+   （`APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` / `APPLE_API_KEY` / `APPLE_API_ISSUER`），
+   后续可补。
+2. **自动更新清单目前只含 Windows**。多平台各打各的包，没法直接合并进同一个 `latest.json`；
+   因此 Mac / Linux 用户能装能跑，但走自动更新还需一份合并后的多平台清单（单独活儿，可排期）。
+
 ## Windows 构建产物
 
 ```bash
