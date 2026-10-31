@@ -137,6 +137,17 @@ test("传了 notes 就以传入的为准", () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("多行的发版说明压成单行（客户端更新提示里换行只会更难读）", () => {
+  const dir = fixture(WIN);
+  const { latest } = buildLatest({
+    dir,
+    version: VER,
+    notes: "  第一段。\n\n第二段。  \r\n 第三段。 ",
+  });
+  assert.equal(latest.notes, "第一段。 第二段。 第三段。");
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("writeLatest 落盘的是可解析的 JSON，且带 pub_date", () => {
   const dir = fixture([...WIN, ...MAC, ...LINUX]);
   const { out } = writeLatest({ dir, version: VER, notes: "落盘" });

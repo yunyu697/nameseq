@@ -107,6 +107,10 @@ export function buildLatest({
       /* 旧文件坏了就空着 */
     }
   }
+  // 压成单行：这条文案会显示在客户端「检查更新」里，换行只会让提示更难读。
+  // 而且多行参数过 Windows 的 cmd 时会被截到第一行——本地发版就踩过，
+  // 清单里只剩第一段，还不报错。CI 那边也做同样的压缩，两边行为要一致。
+  finalNotes = String(finalNotes).replace(/\s+/g, " ").trim();
 
   const latest = {
     version,
