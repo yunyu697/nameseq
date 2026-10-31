@@ -56,7 +56,9 @@ jobs:
         run: |
           set -o pipefail
           npm run test:ui 2>&1 | tee ui-test.log
-      # 日志要登录才能看，把断言原文写进注解，失败原因直接在 PR/提交页可见
+      # 日志要登录才能看，把断言原文写进注解，失败原因直接在 PR/提交页可见。
+      # 不依赖固定的 TAP 版式：先把所有 `not ok` 用例名找出来（保证一定能定位到是谁），
+      # 再把该用例后面那一段里的 error 内容提出来（单行 error: '…' 和 error: |- 块都吃）
       - name: 把失败原因写进注解
         if: failure()
         shell: pwsh
@@ -66,17 +68,28 @@ jobs:
             exit 0
           }
           $log = Get-Content ui-test.log -Raw
-          $blocks = [regex]::Matches($log, '(?s)not ok \d+ - ([^\r\n]+)\r?\n.*?error: \|-?\r?\n(.*?)\r?\n\s+code:')
+          $fails = [regex]::Matches($log, '(?m)^not ok \d+ - (.+)$')
+          if ($fails.Count -eq 0) {
+            $tail = ($log -split "`n" | Select-Object -Last 25) -join " | "
+            Write-Output "::error::日志里没有 not ok 行，尾部：$tail"
+            exit 0
+          }
           $i = 0
-          foreach ($b in $blocks) {
+          foreach ($m in $fails) {
             if ($i -ge 4) { break }
-            $title = ($b.Groups[1].Value.Trim() -replace '[:\r\n]', ' ')
-            $msg = ($b.Groups[2].Value -replace '\r?\n\s*', ' ').Trim()
-            if ($msg.Length -gt 600) { $msg = $msg.Substring(0, 600) }
+            $title = ($m.Groups[1].Value.Trim() -replace '[:\r\n]', ' ')
+            # 从这条 not ok 开始截一段，到下一个 not ok 之前（够长就截 2000 字符）
+            $rest = $log.Substring($m.Index)
+            $next = $rest.IndexOf("`nnot ok", 1)
+            $block = if ($next -gt 0) { $rest.Substring(0, $next) } else { $rest }
+            if ($block.Length -gt 2000) { $block = $block.Substring(0, 2000) }
+            # 去掉 TAP 的样板行，只留错误正文和位置
+            $lines = ($block -split "`r?`n") | Where-Object {
+              $_ -notmatch '^\s*(---|\.\.\.|duration_ms:|type:|code:|failureType:|stack:|\.\.\.)\s*$' -and
+              $_ -notmatch '^\s*(code|failureType|stack):'
+            }
+            $msg = (($lines -join ' ') -replace '\s+', ' ').Trim()
+            if ($msg.Length -gt 700) { $msg = $msg.Substring(0, 700) }
             Write-Output "::error title=$title::$msg"
             $i++
-          }
-          if ($i -eq 0) {
-            $tail = ($log -split "`n" | Select-Object -Last 20) -join " | "
-            Write-Output "::error::没解析到断言块，日志尾部：$tail"
           }
