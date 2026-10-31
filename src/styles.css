@@ -790,8 +790,12 @@ body.col-resizing * {
 }
 .ff-row {
   display: flex;
+  /* 放不下就折行：筛选条里全是 flex:none 的按钮/下拉，窄了没法压缩，
+     与其横向溢出把右侧内容压住，不如多占一行高度 */
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  row-gap: 4px;
   padding: 6px 10px;
   min-width: 0;
 }
@@ -884,7 +888,12 @@ body.col-resizing * {
   color: var(--text-3);
 }
 .ff-count {
-  flex: none;
+  /* 描述性文字先让位（项目 UI 铁律第 2 条）：不能 flex:none 去跟按钮抢宽 */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 11px;
   color: var(--text-3);
 }
