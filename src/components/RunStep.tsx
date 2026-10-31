@@ -196,6 +196,82 @@ export default function RunStep({
 
       <section className="card">
         <header className="card-head">
+          <h3>{t("序号")}</h3>
+          <span className="card-count">
+            {t("模板里 {index} 的计数方式；{counter} 同样生效")}
+          </span>
+        </header>
+        <div className="opt-grid">
+          <label className="fld">
+            <span>{t("起始")}</span>
+            <input
+              type="number"
+              className="num"
+              style={{ width: 70 }}
+              min={0}
+              value={config.startIndex}
+              onChange={(e) =>
+                onChange({
+                  startIndex: Math.max(0, Number(e.target.value) || 0),
+                })
+              }
+            />
+          </label>
+          <label className="fld">
+            <span>{t("步长")}</span>
+            <input
+              type="number"
+              className="num"
+              style={{ width: 70 }}
+              min={1}
+              value={config.indexStep}
+              onChange={(e) =>
+                onChange({
+                  indexStep: Math.max(1, Number(e.target.value) || 1),
+                })
+              }
+            />
+          </label>
+          <label className="fld">
+            <span>{t("位数")}</span>
+            <input
+              type="number"
+              className="num"
+              style={{ width: 70 }}
+              min={0}
+              max={12}
+              value={config.indexWidth}
+              onChange={(e) =>
+                onChange({
+                  indexWidth: Math.min(
+                    12,
+                    Math.max(0, Number(e.target.value) || 0),
+                  ),
+                })
+              }
+            />
+          </label>
+        </div>
+        <div className="checks">
+          <label className="chk">
+            <input
+              type="checkbox"
+              checked={config.indexPerFolder}
+              onChange={(e) =>
+                onChange({ indexPerFolder: e.target.checked })
+              }
+            />
+            {t("按文件夹重新计数")}
+            <span className="io-hint">{t("每个文件夹各自从「起始」开始")}</span>
+          </label>
+        </div>
+        <p className="set-hint dim" style={{ margin: 0 }}>
+          {t("模板里写 {index:03} 这类显式格式时，优先用模板里的位数")}
+        </p>
+      </section>
+
+      <section className="card">
+        <header className="card-head">
           <h3>{t("执行选项")}</h3>
           <span className="card-count">{t("排序在预览列表上方调整")}</span>
         </header>

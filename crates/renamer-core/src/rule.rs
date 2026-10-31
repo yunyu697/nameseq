@@ -380,6 +380,8 @@ pub struct EvalCtx<'a> {
     pub index: usize,
     pub total: usize,
     pub counter: usize,
+    /// {index} 无显式格式时的零补位数（0/1 = 不补）
+    pub index_width: usize,
 }
 
 impl CompiledRule {
@@ -428,6 +430,7 @@ impl CompiledRule {
                     ext: ext_now,
                     dir: parent_name(&ctx.entry.dir),
                     index: ctx.index,
+                    index_width: ctx.index_width,
                     total: ctx.total,
                     size: ctx.entry.size,
                     modified_ms: ctx.entry.modified_ms,
@@ -819,6 +822,7 @@ mod tests {
                 index: 1,
                 total: 1,
                 counter,
+                index_width: 0,
             },
         )
         .unwrap();
@@ -1118,6 +1122,7 @@ mod tests {
                 index: 1,
                 total: 1,
                 counter: 1,
+                index_width: 0,
             },
         )
         .unwrap();

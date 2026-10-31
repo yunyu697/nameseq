@@ -130,6 +130,10 @@ export interface RenameConfig {
   naturalSort: boolean;
   startIndex: number;
   indexStep: number;
+  /** {index} 无显式格式时的零补位数（0/1 = 不补；模板里写 {index:03} 则优先） */
+  indexWidth: number;
+  /** {index} 按文件夹重新计数 */
+  indexPerFolder: boolean;
   conflict: ConflictPolicy;
   groups: RuleGroup[];
   excluded: number[];

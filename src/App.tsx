@@ -64,6 +64,8 @@ const DEFAULT_CONFIG: RenameConfig = {
   naturalSort: true,
   startIndex: 1,
   indexStep: 1,
+  indexWidth: 0,
+  indexPerFolder: false,
   conflict: "skip",
   groups: [],
   excluded: [],
@@ -106,6 +108,7 @@ type PaneKey = "files" | "rules" | "run";
 const PANES_KEY = "renamesmith.panes.v1";
 const SPLIT_KEY = "renamesmith.preview.w.v1";
 const FILTER_KEY = "renamesmith.filefilter.v1";
+const SCAN_KEY = "renamesmith.scanopts.v1";
 
 /** 分区是否收起。默认：文件/规则展开，执行选项收起（低频） */
 const DEFAULT_PANES: Record<PaneKey, boolean> = {
@@ -189,11 +192,34 @@ export default function App() {
     }
     return EMPTY_FILE_FILTER;
   });
-  const [recursive, setRecursive] = useState(false);
+  // 扫描选项持久化：上次怎么扫的，这次接着用
+  const loadScanOpts = () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(SCAN_KEY) || "");
+      if (raw && typeof raw === "object") {
+        return {
+          recursive: !!raw.recursive,
+          includeDirs: !!raw.includeDirs,
+          readMedia: !!raw.readMedia,
+        };
+      }
+    } catch {
+      /* 首次使用，走默认 */
+    }
+    return { recursive: false, includeDirs: false, readMedia: false };
+  };
+  const scanOpts0 = loadScanOpts();
+  const [recursive, setRecursive] = useState(scanOpts0.recursive);
   // 文件夹也参与改名（扫描时把目录当条目收进来）
-  const [includeDirs, setIncludeDirs] = useState(false);
+  const [includeDirs, setIncludeDirs] = useState(scanOpts0.includeDirs);
   // 读 MP3/FLAC/MP4 标签与分辨率（有 I/O 成本，默认关）
-  const [readMedia, setReadMedia] = useState(false);
+  const [readMedia, setReadMedia] = useState(scanOpts0.readMedia);
+  useEffect(() => {
+    localStorage.setItem(
+      SCAN_KEY,
+      JSON.stringify({ recursive, includeDirs, readMedia }),
+    );
+  }, [recursive, includeDirs, readMedia]);
   // 崩溃残留：启动时查一次，有就提示恢复
   const [interrupted, setInterrupted] = useState<InterruptedBatch[]>([]);
 
@@ -334,8 +360,10 @@ export default function App() {
           ...chain.config,
           rules,
           groups,
-          // 0.9 之前存的规则链没有次级排序键
+          // 0.9 之前存的规则链没有次级排序键和序号位数设置
           sortBy2: withCfg.sortBy2 ?? null,
+          indexWidth: withCfg.indexWidth ?? 0,
+          indexPerFolder: withCfg.indexPerFolder ?? false,
           excluded: [],
         });
         setOpenIds(new Set());

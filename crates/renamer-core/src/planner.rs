@@ -76,6 +76,12 @@ pub struct RenameConfig {
     pub start_index: usize,
     #[serde(default = "d_one")]
     pub index_step: usize,
+    /// {index} 无显式格式时的零补位数（0/1 = 不补；模板里写 {index:03} 则优先用它）
+    #[serde(default)]
+    pub index_width: usize,
+    /// {index} 按文件夹重新计数：每个目录各自从 start_index 开始
+    #[serde(default)]
+    pub index_per_folder: bool,
     #[serde(default)]
     pub conflict: ConflictPolicy,
     /// 规则分组（整组停用 / 整组条件）
@@ -106,6 +112,8 @@ impl Default for RenameConfig {
             natural_sort: true,
             start_index: 1,
             index_step: 1,
+            index_width: 0,
+            index_per_folder: false,
             conflict: ConflictPolicy::Skip,
             groups: Vec::new(),
             excluded: Vec::new(),
@@ -169,11 +177,15 @@ pub fn build_plan(entries: &[FileEntry], cfg: &RenameConfig) -> Result<Plan, Pla
     // 每条规则一个独立计数器：key 是分组键（按目录重置时用目录，否则用空串）
     let mut counters: Vec<HashMap<String, usize>> = vec![HashMap::new(); compiled.len()];
 
+    // {index} 的序号：只数实际参与改名的文件——被排除的不占号，免得编号出现空洞。
+    // 按文件夹重新计数时，每个目录各自维护一个序号。
+    let mut seq: usize = 0;
+    let mut dir_seq: HashMap<String, usize> = HashMap::new();
+
     let mut ops: Vec<RenameOp> = Vec::with_capacity(total);
 
-    for (k, &ei) in order.iter().enumerate() {
+    for (_k, &ei) in order.iter().enumerate() {
         let e = &entries[ei];
-        let index = cfg.start_index + k * step;
 
         if excluded.contains(&e.id) {
             ops.push(make_op(
@@ -184,6 +196,17 @@ pub fn build_plan(entries: &[FileEntry], cfg: &RenameConfig) -> Result<Plan, Pla
             ));
             continue;
         }
+
+        let index = if cfg.index_per_folder {
+            let c = dir_seq.entry(e.dir.clone()).or_insert(0);
+            let v = cfg.start_index + *c * step;
+            *c += 1;
+            v
+        } else {
+            let v = cfg.start_index + seq * step;
+            seq += 1;
+            v
+        };
 
         let mut state = NameState {
             stem: e.stem.clone(),
@@ -225,6 +248,7 @@ pub fn build_plan(entries: &[FileEntry], cfg: &RenameConfig) -> Result<Plan, Pla
                 index,
                 total,
                 counter: counter_val,
+                index_width: cfg.index_width,
             };
             if let Err(msg) = cr.apply(&mut state, &ctx) {
                 failure = Some(msg);
@@ -789,6 +813,71 @@ mod tests {
         c2.sort_by2 = Some(SortBy::Name);
         let p = build_plan(&es, &c2).unwrap();
         assert_eq!(p.ops[0].old_name, "a.txt");
+    }
+
+    #[test]
+    fn pure_index_template_names_files() {
+        // 纯 {index} 命名：整个新名字就是序号（扩展名由 keepExt 补）
+        let c = cfg(vec![rule(Action::Template {
+            template: "{index}".into(),
+        })]);
+        let es = vec![
+            entry(1, "/t", "a.jpg"),
+            entry(2, "/t", "b.jpg"),
+            entry(3, "/t", "c.jpg"),
+        ];
+        let p = build_plan(&es, &c).unwrap();
+        assert_eq!(p.ops[0].new_name, "1.jpg");
+        assert_eq!(p.ops[1].new_name, "2.jpg");
+        assert_eq!(p.ops[2].new_name, "3.jpg");
+    }
+
+    #[test]
+    fn index_start_step_width() {
+        let c = cfg(vec![rule(Action::Template {
+            template: "{index}".into(),
+        })]);
+        let es = vec![entry(1, "/t", "a.jpg"), entry(2, "/t", "b.jpg")];
+        let mut c2 = c.clone();
+        c2.start_index = 5;
+        c2.index_step = 10;
+        c2.index_width = 3;
+        let p = build_plan(&es, &c2).unwrap();
+        assert_eq!(p.ops[0].new_name, "005.jpg");
+        assert_eq!(p.ops[1].new_name, "015.jpg");
+    }
+
+    #[test]
+    fn index_per_folder_resets() {
+        let c = cfg(vec![rule(Action::Template {
+            template: "{index}".into(),
+        })]);
+        let es = vec![
+            entry(1, "/b", "a.jpg"),
+            entry(2, "/a", "b.jpg"),
+            entry(3, "/b", "c.jpg"),
+        ];
+        let mut c2 = c.clone();
+        c2.index_per_folder = true;
+        let p = build_plan(&es, &c2).unwrap();
+        // 排序为添加顺序：/b 的 a→1，/a 的 b→1，/b 的 c→2
+        assert_eq!(p.ops[0].new_name, "1.jpg");
+        assert_eq!(p.ops[1].new_name, "1.jpg");
+        assert_eq!(p.ops[2].new_name, "2.jpg");
+    }
+
+    #[test]
+    fn excluded_files_do_not_consume_index() {
+        let c = cfg(vec![rule(Action::Template {
+            template: "{index}".into(),
+        })]);
+        let es = vec![entry(1, "/t", "a.jpg"), entry(2, "/t", "b.jpg")];
+        let mut c2 = c.clone();
+        c2.excluded = vec![1]; // 排掉第一个
+        let p = build_plan(&es, &c2).unwrap();
+        // 被排除的不占号：b.jpg 是 1 而不是 2
+        assert_eq!(p.ops[0].status, OpStatus::Excluded);
+        assert_eq!(p.ops[1].new_name, "1.jpg");
     }
 
     #[test]

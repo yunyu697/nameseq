@@ -91,6 +91,8 @@ pub struct RenderCtx<'a> {
     pub ext: &'a str,
     pub dir: &'a str,
     pub index: usize,
+    /// {index} 无显式格式时的零补位数（0/1 = 不补；{index:03} 这种显式格式优先）
+    pub index_width: usize,
     pub total: usize,
     pub size: u64,
     pub modified_ms: i64,
@@ -279,6 +281,10 @@ fn field_value(f: &Field, ctx: &RenderCtx) -> String {
         "dir" => ctx.dir.to_string(),
         "index" | "counter" => match f.fmt.as_deref() {
             Some(fmt) => pad_number(ctx.index, fmt),
+            // 没写格式时套全局位数设置（{index:03} 这类显式格式优先）
+            None if ctx.index_width > 1 => {
+                pad_number(ctx.index, &ctx.index_width.to_string())
+            }
             None => ctx.index.to_string(),
         },
         "total" => ctx.total.to_string(),
@@ -443,6 +449,7 @@ mod tests {
             ext: "JPG",
             dir: "Trip",
             index: 7,
+            index_width: 0,
             total: 42,
             size: 2048,
             modified_ms: 1_700_000_000_000,

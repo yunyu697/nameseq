@@ -65,6 +65,20 @@ export function t(
 /* 只列 UI 里实际出现的文案；没列的自动回落简体原文。 */
 
 const zhTW: Record<string, string> = {
+  "电子书": "電子書",
+  "磁盘镜像": "磁碟映像",
+  "设计源文件": "設計原始檔",
+  "字体": "字型",
+  "字幕": "字幕",
+  "程序与安装包": "程式與安裝包",
+  "序号": "編號",
+  "模板里 {index} 的计数方式；{counter} 同样生效": "模板裡 {index} 的計數方式；{counter} 同樣生效",
+  "起始": "起始",
+  "步长": "步長",
+  "位数": "位數",
+  "按文件夹重新计数": "按資料夾重新計數",
+  "每个文件夹各自从「起始」开始": "每個資料夾各自從「起始」開始",
+  "模板里写 {index:03} 这类显式格式时，优先用模板里的位数": "模板裡寫 {index:03} 這類顯式格式時，優先用模板裡的位數",
   "可执行 {n}": "可執行 {n}",
   "冲突 {n}": "衝突 {n}",
   "非法 {n}": "不合法 {n}",
@@ -349,6 +363,20 @@ const zhTW: Record<string, string> = {
 
 /** 繁体表：先按简体 key 逐字映射，缺的回落简体（不会露键） */
 const en: Record<string, string> = {
+  "电子书": "E-books",
+  "磁盘镜像": "Disk images",
+  "设计源文件": "Design files",
+  "字体": "Fonts",
+  "字幕": "Subtitles",
+  "程序与安装包": "Programs & installers",
+  "序号": "Numbering",
+  "模板里 {index} 的计数方式；{counter} 同样生效": "How {index} counts in templates; {counter} follows the same settings",
+  "起始": "Start",
+  "步长": "Step",
+  "位数": "Padding",
+  "按文件夹重新计数": "Count per folder",
+  "每个文件夹各自从「起始」开始": "Each folder starts from “Start”",
+  "模板里写 {index:03} 这类显式格式时，优先用模板里的位数": "An explicit format like {index:03} in the template wins over this",
   "可执行 {n}": "Ready {n}",
   "冲突 {n}": "Conflicts {n}",
   "非法 {n}": "Invalid {n}",
@@ -637,6 +665,20 @@ const en: Record<string, string> = {
 };
 
 const ja: Record<string, string> = {
+  "电子书": "電子書籍",
+  "磁盘镜像": "ディスクイメージ",
+  "设计源文件": "デザインファイル",
+  "字体": "フォント",
+  "字幕": "字幕",
+  "程序与安装包": "プログラムとインストーラー",
+  "序号": "採番",
+  "模板里 {index} 的计数方式；{counter} 同样生效": "テンプレートの {index} の採番方法。{counter} も同じ設定",
+  "起始": "開始",
+  "步长": "ステップ",
+  "位数": "桁数",
+  "按文件夹重新计数": "フォルダーごとに数え直す",
+  "每个文件夹各自从「起始」开始": "各フォルダーは「開始」から数えます",
+  "模板里写 {index:03} 这类显式格式时，优先用模板里的位数": "テンプレートに {index:03} のような明示形式がある場合はそちらを優先",
   "可执行 {n}": "実行可能 {n}",
   "冲突 {n}": "競合 {n}",
   "非法 {n}": "無効 {n}",
@@ -914,6 +956,20 @@ const ja: Record<string, string> = {
 };
 
 const es: Record<string, string> = {
+  "电子书": "Libros electrónicos",
+  "磁盘镜像": "Imágenes de disco",
+  "设计源文件": "Archivos de diseño",
+  "字体": "Fuentes",
+  "字幕": "Subtítulos",
+  "程序与安装包": "Programas e instaladores",
+  "序号": "Numeración",
+  "模板里 {index} 的计数方式；{counter} 同样生效": "Cómo cuenta {index} en las plantillas; {counter} usa lo mismo",
+  "起始": "Inicio",
+  "步长": "Paso",
+  "位数": "Dígitos",
+  "按文件夹重新计数": "Contar por carpeta",
+  "每个文件夹各自从「起始」开始": "Cada carpeta empieza desde «Inicio»",
+  "模板里写 {index:03} 这类显式格式时，优先用模板里的位数": "Un formato explícito como {index:03} en la plantilla tiene prioridad",
   "可执行 {n}": "Listos {n}",
   "冲突 {n}": "Conflictos {n}",
   "非法 {n}": "No válidos {n}",
