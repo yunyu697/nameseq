@@ -167,6 +167,33 @@ test("全宽度范围内控件零变形、零裁切", async () => {
   );
 });
 
+test("预览列压到最窄时，筛选条不横向溢出", async () => {
+  const page = app.page;
+  // 窗口刚好等于「功能区下限 + 预览下限 + 分隔条」，此时预览列被压到 260px
+  const w = Math.ceil(minWs) + 260 + 4;
+  await page.setViewport(w, 820);
+  await page.frames(3);
+  await sleep(150);
+
+  const diag = await page.eval(`(() => {
+    const box = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      return { w: Math.round(el.getBoundingClientRect().width), sw: el.scrollWidth, cw: el.clientWidth };
+    };
+    return { inner: innerWidth, preview: box(".preview"), ffRow: box(".ff-row"), ffSort: box(".ff-row.ff-sort") };
+  })()`);
+
+  const bad = await page.eval(ROW_OVERFLOW);
+  assert.deepEqual(
+    bad,
+    [],
+    `窗口 ${w}（预览列被压到最窄）时这些行溢出：\n` +
+      bad.map((b) => `  · ${b.cls}：${b.sw} > ${b.cw}`).join("\n") +
+      `\n实测宽度：${JSON.stringify(diag)}`,
+  );
+});
+
 test("最窄宽度下关键行不横向溢出", async () => {
   const page = app.page;
   const narrow = Math.max(700, Math.ceil(minWs) + 264);
@@ -174,12 +201,29 @@ test("最窄宽度下关键行不横向溢出", async () => {
   await page.frames(3);
   await sleep(120);
 
+  // 失败时把关键宽度一起报出来：只报「谁溢出」不够，得知道当时各列到底多宽
+  const diag = await page.eval(`(() => {
+    const w = (sel) => {
+      const el = document.querySelector(sel);
+      return el ? Math.round(el.getBoundingClientRect().width) : null;
+    };
+    return {
+      minWs: window.__MINWS__,
+      inner: innerWidth,
+      workspace: w(".workspace"),
+      preview: w(".preview"),
+      paneFiles: w(".pane-files"),
+      ffBar: w(".ff-bar"),
+    };
+  })()`);
+
   const bad = await page.eval(ROW_OVERFLOW);
   assert.deepEqual(
     bad,
     [],
     `宽度 ${narrow} 下这些行溢出了容器（会遮挡右侧内容）：\n` +
-      bad.map((b) => `  · ${b.cls}：${b.sw} > ${b.cw}`).join("\n"),
+      bad.map((b) => `  · ${b.cls}：${b.sw} > ${b.cw}`).join("\n") +
+      `\n实测宽度：${JSON.stringify(diag)}`,
   );
 
   // 功能区不能被压到实测下限以下
@@ -188,6 +232,6 @@ test("最窄宽度下关键行不横向溢出", async () => {
   );
   assert.ok(
     ws >= minWs - 1,
-    `功能区被压到 ${Math.round(ws)}px，低于实测下限 ${minWs}px`,
+    `功能区被压到 ${Math.round(ws)}px，低于实测下限 ${minWs}px（${JSON.stringify(diag)}）`,
   );
 });

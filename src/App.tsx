@@ -123,6 +123,8 @@ const MIN_PREVIEW = 260;
 
 /** 参与决定功能区最小宽度的「不可换行行」：
     这些行里的按钮都不许压缩，行宽下限 = 内容刚好放得下 */
+// 只收「工作区滚动区里、不可换行」的行。预览区的行（.ff-row 等）不在其中：
+// 预览列宽度由 clampPreview 保底 260px，那边靠自身 flex-wrap 自适应
 const MINROW_SELECTOR = ".rules-toolbar, .chain-head, .card-head";
 
 const defaultPreviewW = () =>

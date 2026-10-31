@@ -800,6 +800,12 @@ body.col-resizing * {
   padding-top: 5px;
   padding-bottom: 5px;
 }
+/* 排序行是「标签 + 下拉 + 标签 + 下拉 + 勾选」的固定组合，窄了放不下。
+   允许折行：宁可多占一行高度，也不能横向溢出把右侧内容压住 */
+.ff-row.ff-sort {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
 .ff-mode {
   flex: none;
 }
