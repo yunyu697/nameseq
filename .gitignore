@@ -20,3 +20,4 @@ tmp-*.mjs
 .cprof/
 .workbuddy-ai/
 .workbuddy/
+tests/ui/.artifacts/

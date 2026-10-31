@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { t } from "../i18n";
 import { ACTION_GROUPS, ACTION_LABELS } from "../rules";
 import {
   BUILTIN_PRESETS,
@@ -187,7 +188,7 @@ export default function RulesStep({
           onClick={() => togglePanel("lib")}
         >
           <IconPlus size={14} />
-          添加规则
+          {t("添加规则")}
           <span className={`chev ${panel === "lib" ? "open" : ""}`}>
             <IconChevron />
           </span>
@@ -198,7 +199,7 @@ export default function RulesStep({
           onClick={() => togglePanel("presets")}
         >
           <IconSpark size={14} />
-          预设
+          {t("预设")}
           <span className="toolbar-count">{presetTotal}</span>
           <span className={`chev ${panel === "presets" ? "open" : ""}`}>
             <IconChevron />
@@ -213,13 +214,13 @@ export default function RulesStep({
           }}
         >
           <IconSave size={13} />
-          存为预设
+          {t("存为预设")}
         </button>
         <span className="grow" />
         <span className="toolbar-hint">
           {rules.length === 0
-            ? "从规则库挑一条，或直接套用预设"
-            : `共 ${rules.length} 条规则`}
+            ? t("从规则库挑一条，或直接套用预设")
+            : t("{n} 条规则", { n: rules.length })}
         </span>
 
         {panel === "lib" && popPos && (
@@ -351,7 +352,7 @@ export default function RulesStep({
                               </button>
                               <button
                                 className="preset-del"
-                                title="删除这个预设"
+                                title={t("删除这个预设")}
                                 onClick={() => onDeletePreset(p.id)}
                               >
                                 <IconX size={11} />
@@ -417,9 +418,9 @@ export default function RulesStep({
 
         {rules.length === 0 ? (
           <div className="chain-empty">
-            <p>规则链是空的</p>
+            <p>{t("规则链是空的")}</p>
             <p className="hint">
-              点上方「添加规则」挑一条，或者打开「预设」一键套用。
+              {t("点上方「添加规则」挑一条，或者打开「预设」一键套用。")}
             </p>
           </div>
         ) : (

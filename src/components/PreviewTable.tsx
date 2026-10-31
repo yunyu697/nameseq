@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { STATUS_LABEL, type RenameOp } from "../types";
+import { t } from "../i18n";
 import { diffName } from "../util";
 import { IconFolder, IconSearch, IconX } from "./Icons";
 
@@ -405,12 +406,16 @@ export default function PreviewTable({
                     setMenu({ x: e.clientX, y: e.clientY, op });
                   }}
                 >
-                  <span className="grip" title="拖动排序" />
+                  <span className="grip" title={t("拖动排序")} />
                   <span className="pick">
                     <input
                       type="checkbox"
                       checked={!isOff}
-                      title={isOff ? "已排除，点一下恢复" : "取消勾选可排除这个文件"}
+                      title={
+                        isOff
+                          ? t("已排除，点一下恢复")
+                          : t("取消勾选可排除这个文件")
+                      }
                       onChange={() => onToggle(op.id)}
                     />
                   </span>
@@ -535,8 +540,12 @@ export default function PreviewTable({
                 }}
               >
                 {allOff
-                  ? `恢复 ${ids.length > 1 ? `${ids.length} 个文件` : "这个文件"}`
-                  : `排除 ${ids.length > 1 ? `${ids.length} 个文件` : "这个文件"}`}
+                  ? ids.length > 1
+                    ? t("恢复 {n} 个文件", { n: ids.length })
+                    : t("恢复这个文件")
+                  : ids.length > 1
+                    ? t("排除 {n} 个文件", { n: ids.length })
+                    : t("排除这个文件")}
               </button>
             );
           })()}

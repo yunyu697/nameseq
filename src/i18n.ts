@@ -359,6 +359,24 @@ const zhTW: Record<string, string> = {
   "跟随系统": "跟隨系統",
   "切换语言后立即生效，无需重启": "切換語言後立即生效，無需重啟",
   "更新说明见下方更新日志": "更新說明見下方更新日誌",
+  "只保留命中的类型，其余全部排除": "只保留命中的類型，其餘全部排除",
+  "命中的类型跳过，其余照常改名": "命中的類型跳過，其餘照常改名",
+  再按: "再按",
+  "{n} 个待还原": "{n} 個待還原",
+  "压缩包": "壓縮包",
+  "代码": "程式碼",
+  "从规则库挑一条，或直接套用预设": "從規則庫挑一條，或直接套用預設",
+  "删除这个预设": "刪除這個預設",
+  "规则链是空的": "規則鏈是空的",
+  "点上方「添加规则」挑一条，或者打开「预设」一键套用。":
+    "點上方「新增規則」挑一條，或開啟「預設」一鍵套用。",
+  拖动排序: "拖曳排序",
+  "已排除，点一下恢复": "已排除，點一下恢復",
+  "取消勾选可排除这个文件": "取消勾選可排除這個檔案",
+  "恢复 {n} 个文件": "恢復 {n} 個檔案",
+  "恢复这个文件": "恢復這個檔案",
+  "排除 {n} 个文件": "排除 {n} 個檔案",
+  "排除这个文件": "排除這個檔案",
 };
 
 /** 繁体表：先按简体 key 逐字映射，缺的回落简体（不会露键） */
@@ -662,6 +680,26 @@ const en: Record<string, string> = {
   "跟随系统": "System",
   "切换语言后立即生效，无需重启": "Applies immediately, no restart needed",
   "更新说明见下方更新日志": "See release notes below",
+  "只保留命中的类型，其余全部排除":
+    "Keep only the matching types, exclude everything else",
+  "命中的类型跳过，其余照常改名": "Skip the matching types, rename the rest",
+  再按: "then by",
+  "{n} 个文件": "{n} files",
+  收起: "Collapse",
+  "{n} 个待还原": "{n} to restore",
+  "从规则库挑一条，或直接套用预设":
+    "Pick one from the library, or apply a preset",
+  "删除这个预设": "Delete this preset",
+  "规则链是空的": "The rule chain is empty",
+  "点上方「添加规则」挑一条，或者打开「预设」一键套用。":
+    'Pick one with "Add rule" above, or apply a preset in one click.',
+  拖动排序: "Drag to reorder",
+  "已排除，点一下恢复": "Excluded — click to restore",
+  "取消勾选可排除这个文件": "Uncheck to exclude this file",
+  "恢复 {n} 个文件": "Restore {n} files",
+  "恢复这个文件": "Restore this file",
+  "排除 {n} 个文件": "Exclude {n} files",
+  "排除这个文件": "Exclude this file",
 };
 
 const ja: Record<string, string> = {
@@ -953,6 +991,29 @@ const ja: Record<string, string> = {
   "切换语言后立即生效，无需重启":
     "言語の変更は即時反映され、再起動は不要です",
   "更新说明见下方更新日志": "詳細は下のリリースノートを参照",
+  "只保留命中的类型，其余全部排除":
+    "一致した種類だけを残し、それ以外はすべて除外",
+  "命中的类型跳过，其余照常改名":
+    "一致した種類はスキップし、それ以外は通常どおり改名",
+  再按: "次に",
+  "{n} 个文件": "{n} 個のファイル",
+  收起: "折りたたむ",
+  "{n} 个待还原": "復元待ち {n} 件",
+  "执行采用「两阶段改名」：先全部改成临时名，再改成目标名。这样成环的改名（a→b 同时 b→a）也能安全完成，中途失败可回滚。":
+    "実行は「2段階リネーム」で行います。まずすべて一時名に変更し、その後で目的の名前に変更します。これにより循環する改名（a→b と同時に b→a）も安全に完了し、途中で失敗してもロールバックできます。",
+  "从规则库挑一条，或直接套用预设":
+    "ルールライブラリから1つ選ぶか、プリセットを適用してください",
+  "删除这个预设": "このプリセットを削除",
+  "规则链是空的": "ルールチェーンが空です",
+  "点上方「添加规则」挑一条，或者打开「预设」一键套用。":
+    "上の「ルールを追加」から1つ選ぶか、「プリセット」を開いてワンクリックで適用してください。",
+  拖动排序: "ドラッグで並べ替え",
+  "已排除，点一下恢复": "除外済み。クリックで復元",
+  "取消勾选可排除这个文件": "チェックを外すとこのファイルを除外",
+  "恢复 {n} 个文件": "{n} 個のファイルを復元",
+  "恢复这个文件": "このファイルを復元",
+  "排除 {n} 个文件": "{n} 個のファイルを除外",
+  "排除这个文件": "このファイルを除外",
 };
 
 const es: Record<string, string> = {
@@ -1243,6 +1304,29 @@ const es: Record<string, string> = {
   "切换语言后立即生效，无需重启":
     "El cambio se aplica al instante, sin reiniciar",
   "更新说明见下方更新日志": "Ver las novedades abajo",
+  "只保留命中的类型，其余全部排除":
+    "Conservar solo los tipos que coinciden, excluir el resto",
+  "命中的类型跳过，其余照常改名":
+    "Omitir los tipos que coinciden, renombrar el resto",
+  再按: "luego por",
+  "{n} 个文件": "{n} archivos",
+  收起: "Contraer",
+  "{n} 个待还原": "{n} por restaurar",
+  "执行采用「两阶段改名」：先全部改成临时名，再改成目标名。这样成环的改名（a→b 同时 b→a）也能安全完成，中途失败可回滚。":
+    "El renombrado se hace en dos fases: primero todo pasa a un nombre temporal y después al nombre destino. Así los renombrados circulares (a→b y b→a a la vez) terminan sin conflicto, y un fallo a medias se puede revertir.",
+  "从规则库挑一条，或直接套用预设":
+    "Elige una de la biblioteca o aplica un preajuste",
+  "删除这个预设": "Eliminar este preajuste",
+  "规则链是空的": "La cadena de reglas está vacía",
+  "点上方「添加规则」挑一条，或者打开「预设」一键套用。":
+    "Elige una con «Añadir regla» arriba o aplica un preajuste con un clic.",
+  拖动排序: "Arrastrar para reordenar",
+  "已排除，点一下恢复": "Excluido: haz clic para restaurar",
+  "取消勾选可排除这个文件": "Desmarca para excluir este archivo",
+  "恢复 {n} 个文件": "Restaurar {n} archivos",
+  "恢复这个文件": "Restaurar este archivo",
+  "排除 {n} 个文件": "Excluir {n} archivos",
+  "排除这个文件": "Excluir este archivo",
 };
 
 const TABLE: Partial<Record<Lang, Record<string, string>>> = {

@@ -487,16 +487,37 @@ npm run tauri build      # 打包
 只跑引擎测试（很快，不需要编译 Tauri）：
 
 ```bash
-cd crates/renamer-core && cargo test    # 引擎：107 个
+cd crates/renamer-core && cargo test    # 引擎：125 个
 cd crates/nameseq-cli && cargo test     # 命令行：8 个（含真跑一遍改名→撤销）
 ```
 
-引擎当前 110 个测试：97 个单元测试 + 10 个端到端集成测试（真实文件系统上跑扫描→规划→执行→撤销
-→崩溃恢复）+ 3 个预设语法验证测试。命令行另有 4 个参数解析单测 + 4 个端到端（临时目录里真改名、
-真撤销、坏规则链的退出码）。
+引擎当前 125 个测试：112 个单元测试 + 13 个集成测试（10 个端到端：真实文件系统上跑扫描→规划→
+执行→撤销→崩溃恢复；3 个预设语法验证）。命令行另有 4 个参数解析单测 + 4 个端到端（临时目录里
+真改名、真撤销、坏规则链的退出码）。
 
-CI（`.github/workflows/ci.yml`）在 Windows 上跑两个 crate 的 `cargo test`，
-在 Ubuntu 上跑 `tsc --noEmit` + `vite build`——推送和 PR 都会先过这一关。
+### 界面回归（`npm run test:ui`）
+
+```bash
+npm run test:ui
+```
+
+零依赖：Node 22 自带 WebSocket，直连 Chrome DevTools；vite 用编程式 API 起在随机端口，
+每个测试文件自己启一个 headless Chrome，跑完就关。本机需要 Chrome，不在默认路径时用
+`CHROME_PATH` 指定。
+
+| 文件 | 管什么 |
+|---|---|
+| `smoke.test.mjs` | 页面能挂载、启动时按预期调用后端、加文件后预览表出行 |
+| `layout.test.mjs` | 从实测最小宽度扫到 1600：所有按钮/勾选框高度必须不变、不被裁切；最窄时关键行不溢出 |
+| `interaction.test.mjs` | 拖拽排序、分区折叠、切换语言后不残留中文 |
+| `i18n.test.mjs` | 源码里每条 `t("…")` 在四张语言表里都有译法（纯静态，不开浏览器） |
+
+`layout.test.mjs` 是这套的重点：窄窗口下按钮变形/遮挡历史上返工过五六次，现在用「全宽度枚举 +
+跨宽度比对」把它钉死——新增控件不用改测试，只要它变形就会被抓出来。
+
+CI（`.github/workflows/ci.yml`）三个 job：Windows 上跑两个 crate 的 `cargo test`，Ubuntu 上跑
+`tsc --noEmit` + `vite build`，Windows 上再跑一遍界面回归（布局测量受字体和滚动条影响，
+必须在目标平台跑）。
 
 ## 发布
 
@@ -651,5 +672,4 @@ Windows 上走 passive 安装（静默装，只留一个进度条）。签名不
 ## 还没做的
 
 - 目录树同步：改完上层目录名后，已加载列表里的路径自动跟着更新（现在需要重新扫描）
-- 规则分组：规则一多（10 条以上）时，整组禁用 / 整组加条件
 - 执行前报告导出（CSV / Markdown），用于交付与审计

@@ -31,10 +31,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: 类型检查
         run: npx tsc --noEmit
       - name: 生产构建
         run: npm run build
+
+  ui:
+    # 布局测量受字体和滚动条影响，必须在 Windows 上跑才和用户看到的一致
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: UI 回归（布局零变形 / 拖拽排序 / 分区折叠 / i18n 完整性）
+        run: npm run test:ui
